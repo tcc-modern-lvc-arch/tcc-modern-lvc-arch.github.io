@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CQRS &amp; LVC — TCC | Rafael Rodrigues Pereira</title>
+<meta name="description" content="Sistema de Arquitetura Moderna para Simulações LVC — TCC de Rafael Rodrigues Pereira (Sistemas de Informação, Mackenzie FCI). Repositórios, artigo e apresentação.">
+<script>
+  /* Aplica o tema salvo o quanto antes, evitando "flash" de tema errado na carga. */
+  (function () {
+    try {
+      var saved = localStorage.getItem('tcc-theme');
+      if (saved === 'dark' || saved === 'light') {
+        document.documentElement.setAttribute('data-theme', saved);
+      }
+    } catch (e) {}
+  })();
+</script>
+<style>
+  :root {
+    /* ---- Tema slate técnico (claro) ---- */
+    --bg:        #f7f8f9;
+    --surface:   #ffffff;
+    --ink:       #1f2933;
+    --ink-soft:  #52606d;
+    --ink-faint: #7b8794;
+    --line:      #e1e5ea;
+    --accent:    #0f6f7a;
+    --accent-d:  #0b545d;
+    --accent-w:  #e6f2f3;
+    --accent-card-ink:    #eafbfc;
+    --accent-card-title:  #ffffff;
+    --accent-card-sub:    #bfe9ec;
+    --accent-card-arrow:  #d6f3f5;
+    --grid-dot:  rgba(31,41,51,.035);
+    --radius:    14px;
+    --shadow:    0 1px 2px rgba(31,41,51,.04), 0 8px 24px rgba(31,41,51,.06);
+    --shadow-h:  0 2px 4px rgba(31,41,51,.06), 0 14px 34px rgba(15,111,122,.16);
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  /* ---- Tema escuro: por preferência de sistema (quando não há escolha manual) ---- */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:        #10161b;
+      --surface:   #18212a;
+      --ink:       #e6edf3;
+      --ink-soft:  #aab8c4;
+      --ink-faint: #7b8794;
+      --line:      #2a3742;
+      --accent:    #2da7b3;
+      --accent-d:  #46c2cd;
+      --accent-w:  #15333a;
+      --accent-card-ink:   #06222a;
+      --accent-card-title: #04181e;
+      --accent-card-sub:   #0a3640;
+      --accent-card-arrow: #06262e;
+      --grid-dot:  rgba(255,255,255,.04);
+      --shadow:    0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.4);
+      --shadow-h:  0 2px 4px rgba(0,0,0,.4), 0 14px 34px rgba(0,0,0,.55);
+    }
+  }
+
+  /* ---- Tema escuro: por escolha manual (sobrepõe o sistema) ---- */
+  :root[data-theme="dark"] {
+    --bg:        #10161b;
+    --surface:   #18212a;
+    --ink:       #e6edf3;
+    --ink-soft:  #aab8c4;
+    --ink-faint: #7b8794;
+    --line:      #2a3742;
+    --accent:    #2da7b3;
+    --accent-d:  #46c2cd;
+    --accent-w:  #15333a;
+    --accent-card-ink:   #06222a;
+    --accent-card-title: #04181e;
+    --accent-card-sub:   #0a3640;
+    --accent-card-arrow: #06262e;
+    --grid-dot:  rgba(255,255,255,.04);
+    --shadow:    0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.4);
+    --shadow-h:  0 2px 4px rgba(0,0,0,.4), 0 14px 34px rgba(0,0,0,.55);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.55;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: clamp(1.25rem, 4vw, 3rem) 1.25rem;
+    background-image: radial-gradient(circle at 1px 1px, var(--grid-dot) 1px, transparent 0);
+    background-size: 26px 26px;
+    transition: background-color .3s ease, color .3s ease;
+  }
+
+  .wrap {
+    width: 100%;
+    max-width: 680px;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(1.75rem, 4vw, 2.5rem);
+  }
+
+  /* ---------- Toggle de tema ---------- */
+  .theme-toggle {
+    position: fixed;
+    top: clamp(1rem, 3vw, 1.5rem);
+    right: clamp(1rem, 3vw, 1.5rem);
+    width: 40px; height: 40px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    border: 1.5px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-soft);
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: color .16s ease, border-color .16s ease, transform .16s ease;
+    z-index: 10;
+  }
+  .theme-toggle:hover, .theme-toggle:focus-visible {
+    color: var(--accent);
+    border-color: var(--accent);
+    transform: rotate(12deg);
+    outline: none;
+  }
+  .theme-toggle svg { width: 19px; height: 19px; }
+  .theme-toggle .sun { display: none; }
+  .theme-toggle .moon { display: block; }
+  :root[data-theme="dark"] .theme-toggle .sun { display: block; }
+  :root[data-theme="dark"] .theme-toggle .moon { display: none; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .theme-toggle .sun { display: block; }
+    :root:not([data-theme="light"]) .theme-toggle .moon { display: none; }
+  }
+
+  /* ---------- Cabeçalho ---------- */
+  header { text-align: left; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: .85rem;
+    display: inline-flex; align-items: center; gap: .5rem;
+  }
+  .eyebrow::before { content: ""; width: 26px; height: 1px; background: var(--accent); display: inline-block; }
+  h1 {
+    font-size: clamp(1.55rem, 5vw, 2.3rem); font-weight: 700;
+    letter-spacing: -0.015em; line-height: 1.15; color: var(--ink);
+  }
+  .subtitle {
+    margin-top: .9rem; font-size: clamp(.95rem, 2.4vw, 1.08rem);
+    color: var(--ink-soft); max-width: 60ch;
+  }
+  .subtitle .tech { font-family: var(--mono); font-size: .92em; color: var(--accent-d); }
+  .credits {
+    margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid var(--line);
+    font-size: .86rem; color: var(--ink-faint);
+    display: flex; flex-wrap: wrap; gap: .35rem 1.4rem;
+  }
+  .credits b { color: var(--ink-soft); font-weight: 600; }
+
+  /* ---------- Seções ---------- */
+  .section-label {
+    font-family: var(--mono); font-size: .7rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink-faint); margin-bottom: .85rem;
+  }
+
+  /* ---------- Bloco 1: repositórios ---------- */
+  .repos { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .card {
+    display: flex; flex-direction: column; gap: .55rem;
+    padding: 1.4rem 1.4rem 1.3rem; border-radius: var(--radius);
+    text-decoration: none; background: var(--accent); color: var(--accent-card-ink);
+    box-shadow: var(--shadow);
+    transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+    position: relative; overflow: hidden;
+  }
+  .card:hover, .card:focus-visible {
+    transform: translateY(-3px); box-shadow: var(--shadow-h);
+    background: var(--accent-d); outline: none;
+  }
+  .card .icon { width: 26px; height: 26px; opacity: .95; }
+  .card .card-title { font-size: 1.12rem; font-weight: 650; color: var(--accent-card-title); }
+  .card .card-sub { font-family: var(--mono); font-size: .76rem; color: var(--accent-card-sub); word-break: break-word; }
+  .card .arrow { margin-top: .2rem; font-size: .8rem; color: var(--accent-card-arrow); display: inline-flex; align-items: center; gap: .35rem; }
+
+  /* ---------- Bloco 2: downloads ---------- */
+  .docs { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .doc {
+    display: flex; align-items: center; gap: .9rem;
+    padding: 1.05rem 1.2rem; border-radius: var(--radius);
+    text-decoration: none; background: var(--surface);
+    border: 1.5px solid var(--line); color: var(--ink);
+    transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+  }
+  .doc:hover, .doc:focus-visible {
+    border-color: var(--accent); transform: translateY(-2px);
+    box-shadow: var(--shadow); outline: none;
+  }
+  .doc .doc-icon {
+    flex: 0 0 auto; width: 38px; height: 38px;
+    display: grid; place-items: center; border-radius: 9px;
+    background: var(--accent-w); color: var(--accent-d);
+  }
+  .doc .doc-text { display: flex; flex-direction: column; line-height: 1.3; }
+  .doc .doc-title { font-weight: 600; font-size: .98rem; }
+  .doc .doc-meta { font-family: var(--mono); font-size: .72rem; color: var(--ink-faint); display: inline-flex; align-items: center; gap: .4rem; }
+
+  /* ---------- Rodapé ---------- */
+  footer {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 1rem; padding-top: 1.3rem; border-top: 1px solid var(--line);
+    font-size: .82rem; color: var(--ink-faint);
+  }
+  .linkedin { display: inline-flex; align-items: center; gap: .5rem; text-decoration: none; color: var(--ink-soft); font-weight: 500; transition: color .16s ease; }
+  .linkedin:hover, .linkedin:focus-visible { color: var(--accent); outline: none; }
+  .linkedin svg { width: 18px; height: 18px; }
+  .footer-meta { font-family: var(--mono); font-size: .72rem; }
+
+  /* ---------- Responsivo ---------- */
+  @media (max-width: 540px) {
+    .repos, .docs { grid-template-columns: 1fr; }
+    footer { flex-direction: column; align-items: flex-start; }
+  }
+
+  /* ---------- Animações de entrada (leves, escalonadas) ---------- */
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .reveal { opacity: 0; animation: rise .55s cubic-bezier(.22,.61,.36,1) forwards; }
+  .reveal.d1 { animation-delay: .05s; }
+  .reveal.d2 { animation-delay: .15s; }
+  .reveal.d3 { animation-delay: .25s; }
+  .reveal.d4 { animation-delay: .35s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+    .reveal { opacity: 1 !important; animation: none !important; }
+    .theme-toggle:hover { transform: none; }
+  }
+</style>
+</head>
+<body>
+
+  <button class="theme-toggle" id="themeToggle" type="button" aria-label="Alternar tema claro/escuro" title="Alternar tema">
+    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+  </button>
+
+  <main class="wrap">
+
+    <!-- ===== Cabeçalho ===== -->
+    <header class="reveal d1">
+      <span class="eyebrow">TCC II · Sistemas de Informação · 2026</span>
+      <h1>Sistema de Arquitetura Moderna para Simulações LVC</h1>
+      <p class="subtitle">
+        Uma arquitetura <span class="tech">event-driven</span> Open Source com
+        <span class="tech">Event Sourcing</span> e <span class="tech">CQRS</span>
+        para simulações Live-Virtual-Constructive em Smart Cities.
+      </p>
+      <div class="credits">
+        <span><b>Autor</b> &nbsp;Rafael Rodrigues Pereira</span>
+        <span><b>Orientador</b> &nbsp;Prof. Dr. Fabio Kawaoka Takase</span>
+        <span><b>Instituição</b> &nbsp;Universidade Presbiteriana Mackenzie — FCI</span>
+      </div>
+    </header>
+
+    <!-- ===== Bloco 1: Repositórios ===== -->
+    <section class="reveal d2">
+      <p class="section-label">// Repositórios</p>
+      <div class="repos">
+
+        <a class="card" href="https://github.com/orgs/tcc-modern-lvc-arch/repositories" target="_blank" rel="noopener noreferrer">
+          <svg class="icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+          <span class="card-title">GitHub</span>
+          <span class="card-sub">github.com/orgs/tcc-modern-lvc-arch</span>
+          <span class="arrow">Código-fonte (6 módulos) →</span>
+        </a>
+
+        <a class="card" href="https://deepwiki.com/tcc-modern-lvc-arch" target="_blank" rel="noopener noreferrer">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+          <span class="card-title">Deepwiki</span>
+          <span class="card-sub">deepwiki.com/tcc-modern-lvc-arch</span>
+          <span class="arrow">Documentação navegável →</span>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- ===== Bloco 2: Documentos ===== -->
+    <section class="reveal d3">
+      <p class="section-label">// Documentos</p>
+      <div class="docs">
+
+        <a class="doc" href="Files/cqrs-lvc-artigo.pdf" download="CQRS & LVC - Artigo.pdf">
+          <span class="doc-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/>
+            </svg>
+          </span>
+          <span class="doc-text">
+            <span class="doc-title">Artigo Científico</span>
+            <span class="doc-meta">PDF · download</span>
+          </span>
+        </a>
+
+        <a class="doc" href="Files/cqrs-lvc-apresentacao.pdf" download="CQRS & LVC - Apresentacao.pdf">
+          <span class="doc-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/>
+            </svg>
+          </span>
+          <span class="doc-text">
+            <span class="doc-title">Apresentação</span>
+            <span class="doc-meta">PDF · download</span>
+          </span>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- ===== Bloco 3: Contato ===== -->
+    <footer class="reveal d4">
+      <a class="linkedin" href="https://www.linkedin.com/in/rafaelrodriguespereira" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.07 2.07 0 1 1 0-4.14 2.07 2.07 0 0 1 0 4.14zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.22.79 24 1.77 24h20.45c.98 0 1.78-.78 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"/>
+        </svg>
+        Rafael Rodrigues Pereira
+      </a>
+      <span class="footer-meta">Mackenzie · FCI · 2026</span>
+    </footer>
+
+  </main>
+
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var btn = document.getElementById('themeToggle');
+
+      function currentlyDark() {
+        var t = root.getAttribute('data-theme');
+        if (t === 'dark') return true;
+        if (t === 'light') return false;
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+
+      btn.addEventListener('click', function () {
+        var next = currentlyDark() ? 'light' : 'dark';
+        root.setAttribute('data-theme', next);
+        try { localStorage.setItem('tcc-theme', next); } catch (e) {}
+      });
+    })();
+  </script>
+
+</body>
+</html>
