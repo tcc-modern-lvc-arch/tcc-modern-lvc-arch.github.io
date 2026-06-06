@@ -244,7 +244,7 @@
       * { transition: none !important; }
       .reveal { opacity: 1 !important; animation: none !important; }
       .theme-toggle:hover { transform: none; }
-      .deck-overlay.open { animation: none !important; }
+      .deck-overlay.open, .deck-overlay.closing { animation: none !important; }
     }
 
     /* ---------- Apresentação interativa: card de lançamento ---------- */
@@ -260,6 +260,7 @@
       transform: translateY(-3px); box-shadow: var(--shadow-h);
       background: var(--accent-d); outline: none;
     }
+    .present-card:active { transform: scale(.985); box-shadow: var(--shadow); }
     .present-card .present-icon {
       flex: 0 0 auto; width: 46px; height: 46px; display: grid; place-items: center;
       border-radius: 11px; background: rgba(255,255,255,.14); color: var(--accent-card-title);
@@ -278,8 +279,11 @@
       position: fixed; inset: 0; z-index: 100;
       display: none; flex-direction: column; background: var(--bg);
     }
-    .deck-overlay.open { display: flex; animation: deckIn .22s ease forwards; }
-    @keyframes deckIn { from { opacity: 0; } to { opacity: 1; } }
+    /* .closing sobrepõe .open via cascade (vem depois) — deckOut ganha quando ambas estão presentes */
+    .deck-overlay.open    { display: flex; animation: deckIn  .28s cubic-bezier(.22,.61,.36,1) forwards; }
+    .deck-overlay.closing { animation: deckOut .22s ease forwards; }
+    @keyframes deckIn  { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes deckOut { from { opacity: 1; transform: translateY(0); }    to { opacity: 0; transform: translateY(18px); } }
     .deck-bar {
       flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
       gap: 1rem; padding: .6rem .85rem; min-height: 52px;
@@ -495,6 +499,7 @@
     }
 
     function open(pushHash) {
+      overlay.classList.remove('closing'); // cancela qualquer fechamento em andamento
       loadOnce();
       overlay.classList.add('open');
       overlay.setAttribute('aria-hidden', 'false');
@@ -507,12 +512,43 @@
     }
 
     function close(clearHash) {
-      overlay.classList.remove('open');
-      overlay.setAttribute('aria-hidden', 'true');
-      document.body.style.overflow = '';
+      /* Guard: ignora se já fechado ou já animando pra fechar */
+      if (!overlay.classList.contains('open') || overlay.classList.contains('closing')) return;
+
       if (clearHash && location.hash === '#apresentacao') {
         history.pushState(null, '', location.pathname + location.search);
       }
+
+      /* Sem animação para usuários que preferem movimento reduzido */
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        overlay.classList.remove('open', 'closing');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        return;
+      }
+
+      /* Aguarda deckOut terminar antes de esconder o overlay */
+      var fallback = setTimeout(doClose, 400);
+
+      function onEnd(e) {
+        /* Ignora animationend de outras animações (ex.: deckIn) */
+        if (e && e.animationName && e.animationName !== 'deckOut') return;
+        clearTimeout(fallback);
+        overlay.removeEventListener('animationend', onEnd);
+        overlay.removeEventListener('webkitAnimationEnd', onEnd);
+        doClose();
+      }
+
+      function doClose() {
+        if (doClose.done) return; doClose.done = true;
+        overlay.classList.remove('open', 'closing');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+      }
+
+      overlay.classList.add('closing');
+      overlay.addEventListener('animationend', onEnd);
+      overlay.addEventListener('webkitAnimationEnd', onEnd);
     }
 
     openers.forEach(function (el) {
