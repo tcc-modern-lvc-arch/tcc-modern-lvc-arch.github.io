@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Open Source LVC Simulation Architecture — Latinoware 2026 · Latin.Science</title>
+  <meta name="description" content="Full paper apresentado na trilha Latin.Science do Latinoware 2026: arquitetura event-driven Open Source com Event Sourcing e CQRS para simulações Live–Virtual–Constructive em Smart Cities.">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Open Source LVC Simulation Architecture — Latinoware 2026">
+  <meta property="og:description" content="Full paper · Latin.Science 2026 · Event Sourcing, CQRS e gRPC para simulações LVC em Smart Cities.">
+  <meta property="og:image" content="https://tcc-modern-lvc-arch.github.io/latinoware2026/assets/og-cover.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    /* Aplica tema e idioma salvos o quanto antes, evitando "flash" na carga.
+       A chave de tema é a mesma da página do TCC, então a escolha vale para as duas. */
+    (function () {
+      var root = document.documentElement;
+      try {
+        var saved = localStorage.getItem('tcc-theme');
+        if (saved === 'dark' || saved === 'light') root.setAttribute('data-theme', saved);
+      } catch (e) {}
+      var lang = null;
+      try { lang = localStorage.getItem('lw-lang'); } catch (e) {}
+      if (lang !== 'pt' && lang !== 'en') {
+        lang = /^pt\b/i.test(navigator.language || 'pt') ? 'pt' : 'en';
+      }
+      root.setAttribute('data-lang', lang);
+    })();
+  </script>
+  <style>
+    :root {
+      /* ---- Identidade Latin.Science (claro) ---- */
+      --bg:        #f2effc;
+      --surface:   #ffffff;
+      --surface-2: #faf9ff;
+      --ink:       #14142b;
+      --ink-soft:  #4e4d68;
+      --ink-faint: #7a7894;
+      --line:      #dcd6f2;
+      --accent:    #685bc7;   /* roxo Latin.Science / Latinoware */
+      --accent-d:  #5446b0;
+      --accent-w:  #eceaf6;
+      --accent-ink:#ffffff;
+      --pink:      #c0408f;
+      /* ---- Identidade TCC (teal), acento secundário ---- */
+      --tcc:       #0f6f7a;
+      --tcc-w:     #e6f2f3;
+      /* ---- Painel Latinoware (sempre escuro) ---- */
+      --lw-top:    #6a5bcf;
+      --lw-mid:    #3a3478;
+      --lw-bot:    #14142b;
+      --grid-dot:  rgba(104,91,199,.07);
+      --radius:    16px;
+      --shadow:    0 1px 2px rgba(20,20,43,.05), 0 10px 28px rgba(20,20,43,.08);
+      --shadow-h:  0 2px 4px rgba(20,20,43,.06), 0 16px 36px rgba(104,91,199,.22);
+      --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+      --sans: "Montserrat", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --ls-logo-light: block;
+      --ls-logo-dark:  none;
+    }
+
+    /* ---- Identidade Latinoware (escuro): por preferência de sistema ---- */
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg:        #14142b;
+        --surface:   #1d1d38;
+        --surface-2: #232344;
+        --ink:       #ecebf8;
+        --ink-soft:  #b9b5d6;
+        --ink-faint: #8a87a8;
+        --line:      #2f2f4f;
+        --accent:    #9d93ec;
+        --accent-d:  #b3abf2;
+        --accent-w:  #29264d;
+        --accent-ink:#14142b;
+        --pink:      #e07bb8;
+        --tcc:       #2da7b3;
+        --tcc-w:     #15333a;
+        --grid-dot:  rgba(198,189,239,.05);
+        --shadow:    0 1px 2px rgba(0,0,0,.35), 0 10px 28px rgba(0,0,0,.4);
+        --shadow-h:  0 2px 4px rgba(0,0,0,.4), 0 16px 36px rgba(104,91,199,.35);
+        --ls-logo-light: none;
+        --ls-logo-dark:  block;
+      }
+    }
+
+    /* ---- Identidade Latinoware (escuro): por escolha manual ---- */
+    :root[data-theme="dark"] {
+      --bg:        #14142b;
+      --surface:   #1d1d38;
+      --surface-2: #232344;
+      --ink:       #ecebf8;
+      --ink-soft:  #b9b5d6;
+      --ink-faint: #8a87a8;
+      --line:      #2f2f4f;
+      --accent:    #9d93ec;
+      --accent-d:  #b3abf2;
+      --accent-w:  #29264d;
+      --accent-ink:#14142b;
+      --pink:      #e07bb8;
+      --tcc:       #2da7b3;
+      --tcc-w:     #15333a;
+      --grid-dot:  rgba(198,189,239,.05);
+      --shadow:    0 1px 2px rgba(0,0,0,.35), 0 10px 28px rgba(0,0,0,.4);
+      --shadow-h:  0 2px 4px rgba(0,0,0,.4), 0 16px 36px rgba(104,91,199,.35);
+      --ls-logo-light: none;
+      --ls-logo-dark:  block;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: clamp(4.25rem, 8vw, 5rem) 16px clamp(2rem, 5vw, 3rem);
+      background-image: radial-gradient(circle at 1px 1px, var(--grid-dot) 1px, transparent 0);
+      background-size: 26px 26px;
+      transition: background-color .3s ease, color .3s ease;
+      overflow-x: hidden;
+    }
+
+    a { color: var(--accent); }
+    .wrap {
+      width: 100%; max-width: 980px; margin: 0 auto;
+      display: flex; flex-direction: column; gap: clamp(2.25rem, 5vw, 3.25rem);
+    }
+    .narrow { max-width: 760px; width: 100%; margin: 0 auto; }
+
+    /* ---------- Barra superior: voltar + idioma + tema ---------- */
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+      display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+      padding: .7rem 16px;
+      background: color-mix(in srgb, var(--bg) 82%, transparent);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+    }
+    .back {
+      display: inline-flex; align-items: center; gap: .45rem; min-width: 0;
+      font-family: var(--mono); font-size: .74rem; letter-spacing: .04em;
+      color: var(--tcc); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .back:hover, .back:focus-visible { text-decoration: underline; outline: none; }
+    .back .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tcc); flex: 0 0 auto; }
+    .tools { display: flex; align-items: center; gap: .5rem; flex: 0 0 auto; }
+
+    .lang-toggle {
+      display: inline-flex; border: 1.5px solid var(--line); border-radius: 99px;
+      background: var(--surface); box-shadow: var(--shadow); overflow: hidden;
+    }
+    .lang-toggle button {
+      font: 600 .72rem/1 var(--mono); letter-spacing: .06em;
+      padding: .55rem .7rem; border: 0; background: transparent; color: var(--ink-faint); cursor: pointer;
+      transition: color .16s ease, background .16s ease;
+    }
+    .lang-toggle button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+    .lang-toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+    .theme-toggle {
+      width: 38px; height: 38px; display: grid; place-items: center;
+      border-radius: 50%; border: 1.5px solid var(--line);
+      background: var(--surface); color: var(--ink-soft); cursor: pointer;
+      box-shadow: var(--shadow);
+      transition: color .16s ease, border-color .16s ease, transform .16s ease;
+    }
+    .theme-toggle:hover, .theme-toggle:focus-visible { color: var(--accent); border-color: var(--accent); transform: rotate(12deg); outline: none; }
+    .theme-toggle svg { width: 18px; height: 18px; }
+    .theme-toggle .sun { display: none; }
+    .theme-toggle .moon { display: block; }
+    :root[data-theme="dark"] .theme-toggle .sun { display: block; }
+    :root[data-theme="dark"] .theme-toggle .moon { display: none; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .theme-toggle .sun { display: block; }
+      :root:not([data-theme="light"]) .theme-toggle .moon { display: none; }
+    }
+
+    /* ---------- Hero: as duas identidades lado a lado ---------- */
+    .hero {
+      display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+      border-radius: calc(var(--radius) + 6px); overflow: hidden;
+      box-shadow: var(--shadow); border: 1px solid var(--line);
+      background: var(--surface);
+    }
+    .hero-lw {
+      position: relative; isolation: isolate; overflow: hidden;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      gap: 1.2rem; padding: clamp(2rem, 5vw, 3rem) clamp(1.25rem, 4vw, 2.25rem);
+      text-align: center; color: #fff;
+      background: linear-gradient(170deg, var(--lw-top) 0%, var(--lw-mid) 45%, var(--lw-bot) 100%);
+    }
+    .hero-lw::before, .hero-lw::after { content: ""; position: absolute; z-index: -1; pointer-events: none; }
+    .hero-lw::before {   /* pontilhado do canto, como no deck */
+      top: 0; left: 0; width: 55%; aspect-ratio: 500 / 404;
+      background: url("assets/dots.png") no-repeat top left / contain; opacity: .55;
+    }
+    .hero-lw::after {    /* ondas do rodapé, como no deck */
+      left: -10%; right: -10%; bottom: -2px; height: 38%;
+      background: url("assets/wave.png") no-repeat bottom center / cover; opacity: .8;
+    }
+    .hero-lw .lw-logo { width: min(300px, 82%); height: auto; display: block; }
+    .hero-lw .lw-edition {
+      font-weight: 600; font-size: clamp(.92rem, 2.2vw, 1.02rem); line-height: 1.35; max-width: 26ch;
+    }
+    .hero-lw .lw-real {
+      display: flex; flex-direction: column; align-items: center; gap: .55rem; margin-top: .4rem;
+      font-size: .72rem; font-weight: 600; letter-spacing: .02em; opacity: .92;
+    }
+    .hero-lw .lw-real img { width: min(220px, 70%); height: auto; display: block; }
+
+    .hero-ls {
+      position: relative; display: flex; flex-direction: column; gap: 1rem;
+      padding: clamp(1.75rem, 4.5vw, 2.75rem) clamp(1.25rem, 4vw, 2.5rem);
+    }
+    .ls-logo { width: 190px; max-width: 60%; height: auto; align-self: flex-end; }
+    .ls-logo.light { display: var(--ls-logo-light); }
+    .ls-logo.dark  { display: var(--ls-logo-dark); }
+    .badges { display: flex; flex-wrap: wrap; gap: .45rem; }
+    .badge {
+      display: inline-flex; align-items: center; gap: .4rem;
+      font-family: var(--mono); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+      padding: .32rem .62rem; border-radius: 99px;
+      background: var(--accent-w); color: var(--accent-d);
+    }
+    .badge.tcc { background: var(--tcc-w); color: var(--tcc); }
+    .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    h1 {
+      font-size: clamp(1.6rem, 4.4vw, 2.35rem); font-weight: 700;
+      letter-spacing: -0.02em; line-height: 1.12; color: var(--ink);
+    }
+    .subtitle { font-size: clamp(.95rem, 2.2vw, 1.03rem); color: var(--ink-soft); max-width: 58ch; }
+    .tech { font-family: var(--mono); font-size: .9em; color: var(--accent-d); }
+    .authors-label {
+      font-family: var(--mono); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--accent); margin-top: .35rem;
+    }
+    .authors { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: .3rem 1.25rem; font-size: .9rem; }
+    .authors a { color: var(--ink); text-decoration: none; display: inline-flex; align-items: center; gap: .4rem; }
+    .authors a:hover, .authors a:focus-visible { color: var(--accent); outline: none; }
+    .authors .orcid { width: 14px; height: 14px; flex: 0 0 auto; }
+    .affil { font-size: .8rem; color: var(--ink-faint); }
+    .hero-cta { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: .4rem; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: .5rem;
+      font: 600 .86rem/1 var(--sans); padding: .8rem 1.05rem; border-radius: 11px;
+      text-decoration: none; cursor: pointer; border: 1.5px solid transparent;
+      transition: transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease, color .16s ease;
+    }
+    .btn svg { width: 17px; height: 17px; }
+    .btn-primary { background: var(--accent); color: var(--accent-ink); box-shadow: var(--shadow); }
+    .btn-primary:hover, .btn-primary:focus-visible { background: var(--accent-d); transform: translateY(-2px); box-shadow: var(--shadow-h); outline: none; }
+    .btn-ghost { background: transparent; color: var(--ink-soft); border-color: var(--line); }
+    .btn-ghost:hover, .btn-ghost:focus-visible { color: var(--accent); border-color: var(--accent); outline: none; }
+
+    /* ---------- Seções ---------- */
+    .section-label {
+      font-family: var(--mono); font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: .6rem;
+      display: inline-flex; align-items: center; gap: .55rem;
+    }
+    .section-label::before { content: ""; width: 26px; height: 2px; background: var(--accent); border-radius: 2px; }
+    h2 { font-size: clamp(1.25rem, 3.2vw, 1.6rem); font-weight: 700; letter-spacing: -0.015em; line-height: 1.2; margin-bottom: 1.1rem; }
+
+    .panel {
+      background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: clamp(1.25rem, 3.5vw, 1.9rem); box-shadow: var(--shadow);
+    }
+    .abstract p { color: var(--ink-soft); font-size: .97rem; }
+    .abstract .note { margin-top: .9rem; font-family: var(--mono); font-size: .72rem; color: var(--ink-faint); text-align: left; }
+    .keywords { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: 1.1rem; }
+    .chip {
+      font-family: var(--mono); font-size: .74rem; padding: .3rem .6rem; border-radius: 8px;
+      background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-soft);
+    }
+    .chip.tcc { color: var(--tcc); border-color: color-mix(in srgb, var(--tcc) 35%, var(--line)); background: var(--tcc-w); }
+
+    /* ---------- Arquitetura: 3 camadas ---------- */
+    .layers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; counter-reset: layer; }
+    .layer {
+      position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 1.3rem 1.25rem 1.2rem; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: .5rem;
+    }
+    .layer::after {
+      content: ""; position: absolute; left: 1.25rem; right: 1.25rem; top: 0; height: 3px; border-radius: 0 0 3px 3px;
+      background: linear-gradient(90deg, var(--accent), var(--pink));
+    }
+    .layer .num { font-family: var(--mono); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+    .layer h3 { font-size: 1.02rem; font-weight: 700; line-height: 1.25; }
+    .layer p { font-size: .87rem; color: var(--ink-soft); }
+    .layer .mods { margin-top: auto; padding-top: .4rem; font-family: var(--mono); font-size: .72rem; color: var(--tcc); }
+
+    /* ---------- Validação: 4 dimensões ---------- */
+    .dims { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+    .dim {
+      display: grid; grid-template-columns: auto 1fr; gap: .25rem 1rem; align-items: start;
+      background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 1.2rem 1.25rem; box-shadow: var(--shadow);
+    }
+    .dim .n {
+      grid-row: span 3; font-weight: 800; font-size: 1.9rem; line-height: 1; color: var(--accent);
+      opacity: .35; letter-spacing: -0.04em;
+    }
+    .dim h3 { font-size: 1rem; font-weight: 700; }
+    .dim p { font-size: .87rem; color: var(--ink-soft); }
+    .dim .ev { font-family: var(--mono); font-size: .7rem; color: var(--tcc); }
+
+    /* ---------- Demos em vídeo ---------- */
+    .videos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+    .video {
+      background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+      overflow: hidden; box-shadow: var(--shadow); display: flex; flex-direction: column;
+    }
+    .video video { width: 100%; aspect-ratio: 16 / 9; display: block; background: #14142b; }
+    .video figcaption { padding: .9rem 1.1rem 1rem; display: flex; flex-direction: column; gap: .2rem; }
+    .video .tag { font-family: var(--mono); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+    .video .t { font-weight: 700; font-size: .95rem; }
+    .video .d { font-size: .82rem; color: var(--ink-soft); }
+
+    /* ---------- Materiais ---------- */
+    .materials { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+    .doc {
+      display: flex; align-items: center; gap: .95rem; min-width: 0;
+      padding: 1.1rem 1.2rem; border-radius: var(--radius);
+      text-decoration: none; background: var(--surface);
+      border: 1.5px solid var(--line); color: var(--ink);
+      transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+    }
+    a.doc:hover, a.doc:focus-visible { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-h); outline: none; }
+    .doc .doc-icon {
+      flex: 0 0 auto; width: 42px; height: 42px; display: grid; place-items: center;
+      border-radius: 10px; background: var(--accent-w); color: var(--accent-d);
+    }
+    .doc .doc-icon svg { width: 21px; height: 21px; }
+    .doc.tcc .doc-icon { background: var(--tcc-w); color: var(--tcc); }
+    a.doc.tcc:hover, a.doc.tcc:focus-visible { border-color: var(--tcc); }
+    .doc .doc-text { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
+    .doc .doc-title { font-weight: 700; font-size: .96rem; }
+    .doc .doc-meta { font-family: var(--mono); font-size: .72rem; color: var(--ink-faint); overflow-wrap: anywhere; }
+    .doc.is-soon { border-style: dashed; color: var(--ink-faint); cursor: default; }
+    .doc.is-soon .doc-icon { background: var(--surface-2); color: var(--ink-faint); }
+    .soon {
+      margin-left: auto; flex: 0 0 auto; font-family: var(--mono); font-size: .64rem; letter-spacing: .1em; text-transform: uppercase;
+      padding: .25rem .5rem; border-radius: 99px; background: var(--accent-w); color: var(--accent-d);
+    }
+
+    /* ---------- Como citar ---------- */
+    .cite { position: relative; }
+    .cite pre {
+      font-family: var(--mono); font-size: .78rem; line-height: 1.6; color: var(--ink-soft);
+      white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere;
+    }
+    .cite pre .k { color: var(--accent-d); }
+    .copy {
+      position: absolute; top: .8rem; right: .8rem;
+      font: 600 .72rem/1 var(--mono); padding: .5rem .7rem; border-radius: 9px; cursor: pointer;
+      border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-soft);
+      transition: color .14s ease, border-color .14s ease;
+    }
+    .copy:hover, .copy:focus-visible { color: var(--accent); border-color: var(--accent); outline: none; }
+
+    /* ---------- Rodapé ---------- */
+    footer {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      gap: 1rem; padding-top: 1.4rem; border-top: 1px solid var(--line);
+      font-size: .84rem; color: var(--ink-faint);
+    }
+    .contacts { display: flex; flex-wrap: wrap; gap: .4rem 1.3rem; }
+    .contacts a { display: inline-flex; align-items: center; gap: .45rem; text-decoration: none; color: var(--ink-soft); font-weight: 500; }
+    .contacts a:hover, .contacts a:focus-visible { color: var(--accent); outline: none; }
+    .contacts svg { width: 17px; height: 17px; }
+    .footer-meta { font-family: var(--mono); font-size: .72rem; }
+    .footer-meta a { color: var(--tcc); }
+
+    /* ---------- Responsivo ---------- */
+    @media (max-width: 820px) {
+      .hero { grid-template-columns: 1fr; }
+      .hero-lw { padding-bottom: 3.5rem; }
+      .ls-logo { align-self: flex-start; }
+      .layers { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .dims, .videos, .materials { grid-template-columns: 1fr; }
+      .authors { grid-template-columns: 1fr; }
+      footer { flex-direction: column; align-items: flex-start; }
+      .cite pre { padding-top: 2.2rem; }
+    }
+
+    /* ---------- Animações de entrada (leves, escalonadas) ---------- */
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .reveal { opacity: 0; animation: rise .55s cubic-bezier(.22,.61,.36,1) forwards; }
+    .reveal.d1 { animation-delay: .05s; }
+    .reveal.d2 { animation-delay: .15s; }
+    .reveal.d3 { animation-delay: .25s; }
+    .reveal.d4 { animation-delay: .35s; }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      * { transition: none !important; }
+      .reveal { opacity: 1 !important; animation: none !important; }
+      .theme-toggle:hover { transform: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== Barra superior ===== -->
+<div class="topbar">
+  <a class="back" href="../"><span class="dot" aria-hidden="true"></span><span data-i18n="back">TCC II · Mackenzie FCI</span></a>
+  <div class="tools">
+    <div class="lang-toggle" role="group" aria-label="Idioma / Language">
+      <button type="button" data-set-lang="pt" aria-pressed="true" lang="pt-BR">PT</button>
+      <button type="button" data-set-lang="en" aria-pressed="false" lang="en">EN</button>
+    </div>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Alternar tema claro/escuro" data-i18n-aria="themeToggle">
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <!-- ===== Hero: Latinoware (escuro) + Latin.Science (claro) ===== -->
+  <header class="hero reveal d1">
+    <div class="hero-lw">
+      <img class="lw-logo" src="assets/latinoware-2026.png" width="760" height="371" alt="Latinoware 2026">
+      <p class="lw-edition" data-i18n="lwEdition">23º Congresso Latino-americano de Software Livre e Tecnologias Abertas</p>
+      <div class="lw-real">
+        <span data-i18n="realizacao">Realização</span>
+        <img src="assets/realizacao-itaipu.png" width="560" height="81" alt="Itaipu Parquetec · Itaipu Binacional">
+      </div>
+    </div>
+
+    <div class="hero-ls">
+      <img class="ls-logo light" src="assets/latinscience.svg" width="818" height="310" alt="Latin.Science 2026">
+      <img class="ls-logo dark" src="assets/latinscience-white.svg" width="515" height="195" alt="Latin.Science 2026">
+      <div class="badges">
+        <span class="badge" data-i18n="badgePaper">Full Paper · Latin.Science 2026</span>
+        <span class="badge tcc" data-i18n="badgeTcc">Origem: TCC II · Mackenzie</span>
+      </div>
+      <h1>Open Source LVC Simulation Architecture</h1>
+      <p class="subtitle" data-i18n-html="subtitle">
+        Uma arquitetura <span class="tech">event-driven</span> Open Source com
+        <span class="tech">Event Sourcing</span> e <span class="tech">CQRS</span>
+        para simulações Live–Virtual–Constructive em Smart Cities.
+      </p>
+
+      <p class="authors-label" data-i18n="authors">Autores</p>
+      <ul class="authors">
+        <li><a href="https://orcid.org/0009-0007-6773-1202" target="_blank" rel="noopener noreferrer"><svg class="orcid" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#a6ce39"/><path fill="#fff" d="M8.2 18H6.7V7.6h1.5zm2.2-10.4h4c3.8 0 5.5 2.7 5.5 5.2 0 2.7-2.1 5.2-5.5 5.2h-4zm1.5 9h2.4c3.4 0 4.2-2.6 4.2-3.8 0-2-1.3-3.8-4.1-3.8h-2.5zM7.5 5.4a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>Rafael Rodrigues Pereira</a></li>
+        <li><a href="https://orcid.org/0009-0009-7756-3315" target="_blank" rel="noopener noreferrer"><svg class="orcid" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#a6ce39"/><path fill="#fff" d="M8.2 18H6.7V7.6h1.5zm2.2-10.4h4c3.8 0 5.5 2.7 5.5 5.2 0 2.7-2.1 5.2-5.5 5.2h-4zm1.5 9h2.4c3.4 0 4.2-2.6 4.2-3.8 0-2-1.3-3.8-4.1-3.8h-2.5zM7.5 5.4a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>Luiza Ribeiro dos Santos</a></li>
+        <li><a href="https://orcid.org/0009-0001-0431-714X" target="_blank" rel="noopener noreferrer"><svg class="orcid" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#a6ce39"/><path fill="#fff" d="M8.2 18H6.7V7.6h1.5zm2.2-10.4h4c3.8 0 5.5 2.7 5.5 5.2 0 2.7-2.1 5.2-5.5 5.2h-4zm1.5 9h2.4c3.4 0 4.2-2.6 4.2-3.8 0-2-1.3-3.8-4.1-3.8h-2.5zM7.5 5.4a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>Marcos Henrique Mansano Vogel</a></li>
+        <li><a href="https://orcid.org/0000-0001-9567-4910" target="_blank" rel="noopener noreferrer"><svg class="orcid" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#a6ce39"/><path fill="#fff" d="M8.2 18H6.7V7.6h1.5zm2.2-10.4h4c3.8 0 5.5 2.7 5.5 5.2 0 2.7-2.1 5.2-5.5 5.2h-4zm1.5 9h2.4c3.4 0 4.2-2.6 4.2-3.8 0-2-1.3-3.8-4.1-3.8h-2.5zM7.5 5.4a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>Bruno da Silva Rodrigues</a></li>
+        <li><a href="https://orcid.org/0000-0001-8274-7682" target="_blank" rel="noopener noreferrer"><svg class="orcid" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#a6ce39"/><path fill="#fff" d="M8.2 18H6.7V7.6h1.5zm2.2-10.4h4c3.8 0 5.5 2.7 5.5 5.2 0 2.7-2.1 5.2-5.5 5.2h-4zm1.5 9h2.4c3.4 0 4.2-2.6 4.2-3.8 0-2-1.3-3.8-4.1-3.8h-2.5zM7.5 5.4a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>Fabio Silva Lopes</a></li>
+        <li><a href="https://orcid.org/0009-0006-4187-796X" target="_blank" rel="noopener noreferrer"><svg class="orcid" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#a6ce39"/><path fill="#fff" d="M8.2 18H6.7V7.6h1.5zm2.2-10.4h4c3.8 0 5.5 2.7 5.5 5.2 0 2.7-2.1 5.2-5.5 5.2h-4zm1.5 9h2.4c3.4 0 4.2-2.6 4.2-3.8 0-2-1.3-3.8-4.1-3.8h-2.5zM7.5 5.4a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>Fabio Kawaoka Takase</a></li>
+      </ul>
+      <p class="affil" data-i18n="affil">Universidade Presbiteriana Mackenzie · São Paulo, Brasil</p>
+
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="../Files/latinoware2026-full-paper.pdf" download="Open Source LVC Simulation Architecture - Latinoware 2026.pdf">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+          <span data-i18n="ctaPaper">Baixar o paper</span>
+        </a>
+        <a class="btn btn-ghost" href="#demos" data-i18n="ctaDemos">Ver as demos</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== Abstract ===== -->
+  <section class="narrow reveal d2" aria-labelledby="h-abstract">
+    <p class="section-label" data-i18n="lblAbstract">Resumo</p>
+    <h2 id="h-abstract" data-i18n="hAbstract">Do TCC ao congresso</h2>
+    <div class="panel abstract">
+      <p data-i18n="abstract">A complexidade inerente à gestão urbana no contexto de Smart Cities demanda soluções avançadas de planejamento e apoio à decisão, visando ampliar a consciência situacional e a resiliência dos ecossistemas urbanos. Este trabalho propõe e valida uma arquitetura de software orientada a eventos para uma plataforma que integra os domínios Live, Virtual e Constructive (LVC) sobre o Campus Living Lab da Universidade Presbiteriana Mackenzie. Fundamentada nos padrões Event Sourcing (ES) e Command Query Responsibility Segregation (CQRS), a arquitetura é construída exclusivamente com tecnologias Open Source, superando as barreiras de licenciamento e adoção dos padrões tradicionais High Level Architecture (HLA) e Distributed Interactive Simulation (DIS). O contrato canônico de interoperabilidade é definido via Protocol Buffers e gRPC, com geração automatizada de stubs Java, Python e Rust pelo módulo proto-shared. A plataforma foi materializada em seis módulos independentes e exercitada por adaptadores Live para AIS, SPTrans (OlhoVivo) e CGESP, um componente Virtual com interface Vaadin sobre o campus Higienópolis e um componente Constructive baseado em AirSim, com planejamento de trajetória apoiado por NVIDIA NIM e Ollama Gemma. Quatro cenários LVC integrados (cadastro de áreas e POIs, check-in/check-out de entidades, missão de drone disparada por eventos Live e auditoria de alertas) foram demonstrados sobre dois dashboards de observabilidade no Grafana. Os resultados validam a viabilidade técnica da arquitetura em quatro dimensões: rastreabilidade, reprodutibilidade, interoperabilidade multi-linguagem e integração com fontes reais. Como limitações, a validação estatística comparativa entre dados Live e modelos Virtual/Constructive e a avaliação de escalabilidade horizontal sob carga massiva permanecem como trabalhos futuros.</p>
+      <p class="note" data-i18n="abstractNote">Tradução livre · o paper foi publicado em inglês.</p>
+      <div class="keywords" aria-label="Keywords">
+        <span class="chip">Digital Twins</span>
+        <span class="chip">LVC</span>
+        <span class="chip">Event-Driven Architecture</span>
+        <span class="chip">Event Sourcing</span>
+        <span class="chip">Open Source</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Arquitetura ===== -->
+  <section class="reveal d3" aria-labelledby="h-arch">
+    <div class="narrow" style="max-width:none">
+      <p class="section-label" data-i18n="lblArch">Arquitetura</p>
+      <h2 id="h-arch" data-i18n="hArch">De ponta a ponta, em três camadas</h2>
+    </div>
+    <div class="layers">
+      <article class="layer">
+        <span class="num" data-i18n="l1num">01 · Ingestão</span>
+        <h3 data-i18n="l1t">Produtores de eventos</h3>
+        <p data-i18n="l1d">Adaptadores Live, Virtual e Constructive publicam eventos via gRPC, em três linguagens, num contrato único.</p>
+        <span class="mods">live-ms-java · virtual-ms-java · constructive-ms-python</span>
+      </article>
+      <article class="layer">
+        <span class="num" data-i18n="l2num">02 · Persistência</span>
+        <h3 data-i18n="l2t">Event Hub + Transactional Outbox</h3>
+        <p data-i18n="l2d">O hub roteia num Pub/Sub uniforme; o Outbox garante at-least-once, persistindo e despachando sob uma única transação.</p>
+        <span class="mods">event-hub-ms-rust · MariaDB · InfluxDB</span>
+      </article>
+      <article class="layer">
+        <span class="num" data-i18n="l3num">03 · Consumo</span>
+        <h3 data-i18n="l3t">CQRS + Grafana</h3>
+        <p data-i18n="l3d">Write stores e read projections separam escrita de leitura; subscribers síncronos fecham ciclos de missão e o Grafana consulta as projeções.</p>
+        <span class="mods">eventhub_read · projections · Grafana</span>
+      </article>
+    </div>
+    <div class="keywords" aria-label="Stack">
+      <span class="chip tcc">proto-shared · gRPC · Protobuf</span>
+      <span class="chip tcc">Rust</span>
+      <span class="chip tcc">Java 25 · Spring Boot</span>
+      <span class="chip tcc">Python · AirSim</span>
+      <span class="chip tcc">NVIDIA NIM · Ollama Gemma</span>
+      <span class="chip tcc">Docker Compose</span>
+    </div>
+  </section>
+
+  <!-- ===== Validação ===== -->
+  <section class="reveal d3" aria-labelledby="h-val">
+    <p class="section-label" data-i18n="lblVal">Validação</p>
+    <h2 id="h-val" data-i18n="hVal">Quatro dimensões, quatro evidências</h2>
+    <div class="dims">
+      <article class="dim">
+        <span class="n">01</span>
+        <h3 data-i18n="v1t">Rastreabilidade</h3>
+        <p data-i18n="v1d">Estado reconstruível a partir de um log imutável; replay como operação de primeira classe.</p>
+        <span class="ev" data-i18n="v1e">evidência · Event Sourcing</span>
+      </article>
+      <article class="dim">
+        <span class="n">02</span>
+        <h3 data-i18n="v2t">Reprodutibilidade</h3>
+        <p data-i18n-html="v2d">O ambiente completo sobe com <span class="tech">docker compose up</span> em qualquer máquina compatível.</p>
+        <span class="ev" data-i18n="v2e">evidência · infra-local-shared</span>
+      </article>
+      <article class="dim">
+        <span class="n">03</span>
+        <h3 data-i18n="v3t">Interoperabilidade multi-linguagem</h3>
+        <p data-i18n-html="v3d">Um único <span class="tech">.proto</span> gera stubs Java, Python e Rust: três linguagens, um só contrato.</p>
+        <span class="ev" data-i18n="v3e">evidência · proto-shared</span>
+      </article>
+      <article class="dim">
+        <span class="n">04</span>
+        <h3 data-i18n="v4t">Integração com fontes reais</h3>
+        <p data-i18n="v4d">Três adaptadores Live em modalidades distintas: REST autenticada, web scraping e API com cadastro.</p>
+        <span class="ev" data-i18n="v4e">evidência · AIS · OlhoVivo · CGESP</span>
+      </article>
+    </div>
+  </section>
+
+  <!-- ===== Demos ===== -->
+  <section id="demos" class="reveal d4" aria-labelledby="h-demos">
+    <p class="section-label" data-i18n="lblDemos">Demos</p>
+    <h2 id="h-demos" data-i18n="hDemos">Cenários LVC em operação</h2>
+    <div class="videos">
+      <figure class="video">
+        <video controls preload="metadata" playsinline src="../videos/cenario3-drone.mp4"></video>
+        <figcaption>
+          <span class="tag" data-i18n="vid1tag">Cenário 3 · Live → Virtual → Constructive</span>
+          <span class="t" data-i18n="vid1t">Missão do drone disparada por evento Live</span>
+          <span class="d" data-i18n="vid1d">Um ônibus chega ao ponto Caio Prado (OlhoVivo), o Gêmeo Digital detecta a entrada na área e o drone voa no AirSim com trajetória planejada por LLM.</span>
+        </figcaption>
+      </figure>
+      <figure class="video">
+        <video controls preload="metadata" playsinline src="../videos/observabilidade-grafana.mp4"></video>
+        <figcaption>
+          <span class="tag" data-i18n="vid2tag">Cenário 4 · Observabilidade</span>
+          <span class="t" data-i18n="vid2t">Grafana em tempo real</span>
+          <span class="d" data-i18n="vid2d">Entidades por área, taxa de check-in/check-out, log de auditoria e alertas (alagamentos CGESP, colisões do drone).</span>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ===== Materiais ===== -->
+  <section class="reveal d4" aria-labelledby="h-mat">
+    <p class="section-label" data-i18n="lblMat">Materiais</p>
+    <h2 id="h-mat" data-i18n="hMat">Paper, slides e código</h2>
+    <div class="materials">
+      <a class="doc" href="../Files/latinoware2026-full-paper.pdf" download="Open Source LVC Simulation Architecture - Latinoware 2026.pdf">
+        <span class="doc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg></span>
+        <span class="doc-text">
+          <span class="doc-title">Full Paper</span>
+          <span class="doc-meta" data-i18n="metaPaper">PDF · camera-ready · 10 páginas</span>
+        </span>
+      </a>
+
+      <!-- Slides: quando o PDF estiver pronto, troque <div> por <a href="../Files/latinoware2026-slides.pdf" download>,
+           remova a classe "is-soon" e o <span class="soon">. -->
+      <div class="doc is-soon" aria-disabled="true">
+        <span class="doc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+        <span class="doc-text">
+          <span class="doc-title" data-i18n="slidesTitle">Slides da apresentação</span>
+          <span class="doc-meta">PDF</span>
+        </span>
+        <span class="soon" data-i18n="soon">em breve</span>
+      </div>
+
+      <a class="doc tcc" href="https://github.com/orgs/tcc-modern-lvc-arch/repositories" target="_blank" rel="noopener noreferrer">
+        <span class="doc-icon"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></span>
+        <span class="doc-text">
+          <span class="doc-title">GitHub</span>
+          <span class="doc-meta" data-i18n="metaGh">Código-fonte · 6 módulos</span>
+        </span>
+      </a>
+
+      <a class="doc tcc" href="https://deepwiki.com/tcc-modern-lvc-arch" target="_blank" rel="noopener noreferrer">
+        <span class="doc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+        <span class="doc-text">
+          <span class="doc-title">Deepwiki</span>
+          <span class="doc-meta" data-i18n="metaWiki">Documentação navegável</span>
+        </span>
+      </a>
+    </div>
+  </section>
+
+  <!-- ===== Como citar ===== -->
+  <section class="narrow reveal d4" aria-labelledby="h-cite">
+    <p class="section-label" data-i18n="lblCite">Citação</p>
+    <h2 id="h-cite" data-i18n="hCite">Como citar</h2>
+    <div class="panel cite">
+      <button class="copy" id="copyBib" type="button" data-i18n="copy">Copiar</button>
+<pre id="bibtex"><span class="k">@inproceedings</span>{pereira2026lvc,
+  <span class="k">title</span>     = {Open Source {LVC} Simulation Architecture},
+  <span class="k">author</span>    = {Pereira, Rafael Rodrigues and Santos, Luiza Ribeiro dos and
+               Vogel, Marcos Henrique Mansano and Rodrigues, Bruno da Silva and
+               Lopes, Fabio Silva and Takase, Fabio Kawaoka},
+  <span class="k">booktitle</span> = {Latin.Science 2026 -- 23rd Latin American Congress on
+               Free Software and Open Technologies (Latinoware 2026)},
+  <span class="k">year</span>      = {2026}
+}</pre>
+    </div>
+  </section>
+
+  <!-- ===== Rodapé ===== -->
+  <footer>
+    <div class="contacts">
+      <a href="mailto:rafael.informa@gmail.com">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>
+        rafael.informa@gmail.com
+      </a>
+      <a href="https://www.linkedin.com/in/rafaelrodriguespereira" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.07 2.07 0 1 1 0-4.14 2.07 2.07 0 0 1 0 4.14zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.22.79 24 1.77 24h20.45c.98 0 1.78-.78 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"/></svg>
+        Rafael Rodrigues Pereira
+      </a>
+    </div>
+    <span class="footer-meta"><a href="https://latinoware.org/" target="_blank" rel="noopener noreferrer">latinoware.org</a> · <a href="../" data-i18n="footerTcc">página do TCC</a></span>
+  </footer>
+
+</main>
+
+<script>
+  /* Tema claro (Latin.Science) / escuro (Latinoware) — mesma lógica da página do TCC. */
+  (function () {
+    var root = document.documentElement;
+    var btn = document.getElementById('themeToggle');
+
+    function currentlyDark() {
+      var t = root.getAttribute('data-theme');
+      if (t === 'dark') return true;
+      if (t === 'light') return false;
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+
+    btn.addEventListener('click', function () {
+      var next = currentlyDark() ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('tcc-theme', next); } catch (e) {}
+    });
+  })();
+</script>
+
+<script>
+  /* i18n PT/EN. O português fica no HTML (fallback sem JS) e é capturado na carga;
+     aqui só ficam as traduções para inglês, por chave de data-i18n / data-i18n-html. */
+  (function () {
+    var EN = {
+      back: 'Undergraduate thesis · Mackenzie FCI',
+      themeToggle: 'Toggle light/dark theme',
+      lwEdition: '23rd Latin American Congress on Free Software and Open Technologies',
+      realizacao: 'Hosted by',
+      badgePaper: 'Full Paper · Latin.Science 2026',
+      badgeTcc: 'Origin: Mackenzie thesis',
+      subtitle: 'An Open Source <span class="tech">event-driven</span> architecture with <span class="tech">Event Sourcing</span> and <span class="tech">CQRS</span> for Live–Virtual–Constructive simulations in Smart Cities.',
+      authors: 'Authors',
+      affil: 'Mackenzie Presbyterian University · São Paulo, Brazil',
+      ctaPaper: 'Download the paper',
+      ctaDemos: 'Watch the demos',
+      lblAbstract: 'Abstract',
+      hAbstract: 'From thesis to conference',
+      abstract: 'The inherent complexity of urban management in the context of Smart Cities demands advanced solutions for planning and decision support, aiming to increase situational awareness and resilience of urban ecosystems. This work proposes and validates an event-driven software architecture for a platform that integrates the Live, Virtual, and Constructive (LVC) domains over the Mackenzie Presbyterian University Campus Living Lab. Grounded on the Event Sourcing (ES) and Command Query Responsibility Segregation (CQRS) patterns, the architecture is built exclusively on Open Source technologies, overcoming the licensing and adoption barriers of traditional High Level Architecture (HLA) and Distributed Interactive Simulation (DIS) standards. The canonical interoperability contract is defined via Protocol Buffers and gRPC, with automated generation of Java, Python, and Rust stubs by the proto-shared module. The platform was materialized as six independent modules and exercised through Live adapters for AIS, SPTrans (OlhoVivo) and CGESP, a Virtual component with a Vaadin interface over the Higienópolis campus, and a Constructive component based on AirSim with trajectory planning supported by NVIDIA NIM and Ollama Gemma. Four integrated LVC scenarios (registration of areas and POIs, entity check-in/check-out, drone mission triggered by Live events, and alert auditing) were demonstrated over two Grafana observability dashboards. Results validate the architecture’s technical feasibility along four dimensions: traceability, reproducibility, multi-language interoperability, and integration with real sources. As limitations, the statistical comparative validation between Live data and Virtual/Constructive models, and the evaluation of horizontal scalability under massive load, remain as future work.',
+      abstractNote: 'Original abstract, as published in the paper.',
+      lblArch: 'Architecture',
+      hArch: 'End to end, in three layers',
+      l1num: '01 · Ingestion',
+      l1t: 'Event producers',
+      l1d: 'Live, Virtual and Constructive adapters publish events over gRPC, in three languages, against a single contract.',
+      l2num: '02 · Persistence',
+      l2t: 'Event Hub + Transactional Outbox',
+      l2d: 'The hub routes through a uniform Pub/Sub; the Outbox guarantees at-least-once delivery by persisting and dispatching in a single transaction.',
+      l3num: '03 · Consumption',
+      l3t: 'CQRS + Grafana',
+      l3d: 'Write stores and read projections split writes from reads; synchronous subscribers close mission loops and Grafana queries the projections.',
+      lblVal: 'Validation',
+      hVal: 'Four dimensions, four pieces of evidence',
+      v1t: 'Traceability',
+      v1d: 'State is rebuilt from an immutable log; replay is a first-class operation.',
+      v1e: 'evidence · Event Sourcing',
+      v2t: 'Reproducibility',
+      v2d: 'The whole environment comes up with <span class="tech">docker compose up</span> on any compatible machine.',
+      v2e: 'evidence · infra-local-shared',
+      v3t: 'Multi-language interoperability',
+      v3d: 'A single <span class="tech">.proto</span> generates Java, Python and Rust stubs: three languages, one contract.',
+      v3e: 'evidence · proto-shared',
+      v4t: 'Integration with real sources',
+      v4d: 'Three Live adapters using distinct access modes: authenticated REST, web scraping and a registered public API.',
+      v4e: 'evidence · AIS · OlhoVivo · CGESP',
+      lblDemos: 'Demos',
+      hDemos: 'LVC scenarios in operation',
+      vid1tag: 'Scenario 3 · Live → Virtual → Constructive',
+      vid1t: 'Drone mission triggered by a Live event',
+      vid1d: 'A bus reaches the Caio Prado stop (OlhoVivo), the Digital Twin detects the area entry and the drone flies in AirSim along an LLM-planned trajectory.',
+      vid2tag: 'Scenario 4 · Observability',
+      vid2t: 'Real-time Grafana',
+      vid2d: 'Entities per area, check-in/check-out rate, audit log and alerts (CGESP floods, drone collisions).',
+      lblMat: 'Materials',
+      hMat: 'Paper, slides and code',
+      metaPaper: 'PDF · camera-ready · 10 pages',
+      slidesTitle: 'Presentation slides',
+      soon: 'coming soon',
+      metaGh: 'Source code · 6 modules',
+      metaWiki: 'Browsable documentation',
+      lblCite: 'Citation',
+      hCite: 'How to cite',
+      copy: 'Copy',
+      copied: 'Copied!',
+      footerTcc: 'thesis page'
+    };
+    var PT_EXTRA = { copied: 'Copiado!' };
+
+    var META = {
+      pt: {
+        title: 'Open Source LVC Simulation Architecture — Latinoware 2026 · Latin.Science',
+        desc: document.querySelector('meta[name="description"]').getAttribute('content')
+      },
+      en: {
+        title: 'Open Source LVC Simulation Architecture — Latinoware 2026 · Latin.Science',
+        desc: 'Full paper presented at the Latin.Science track of Latinoware 2026: an Open Source event-driven architecture with Event Sourcing and CQRS for Live–Virtual–Constructive simulations in Smart Cities.'
+      }
+    };
+
+    var root = document.documentElement;
+    var textEls = document.querySelectorAll('[data-i18n]');
+    var htmlEls = document.querySelectorAll('[data-i18n-html]');
+    var ariaEls = document.querySelectorAll('[data-i18n-aria]');
+    var PT = {};
+    textEls.forEach(function (el) { PT[el.getAttribute('data-i18n')] = el.textContent; });
+    htmlEls.forEach(function (el) { PT[el.getAttribute('data-i18n-html')] = el.innerHTML; });
+    ariaEls.forEach(function (el) { PT[el.getAttribute('data-i18n-aria')] = el.getAttribute('aria-label'); });
+    for (var k in PT_EXTRA) PT[k] = PT_EXTRA[k];
+
+    var current = 'pt';
+    function t(key) { var d = current === 'en' ? EN : PT; return d[key] != null ? d[key] : PT[key]; }
+
+    function apply(lang) {
+      current = lang === 'en' ? 'en' : 'pt';
+      var dict = current === 'en' ? EN : PT;
+      textEls.forEach(function (el) { var v = dict[el.getAttribute('data-i18n')]; if (v != null) el.textContent = v; });
+      htmlEls.forEach(function (el) { var v = dict[el.getAttribute('data-i18n-html')]; if (v != null) el.innerHTML = v; });
+      ariaEls.forEach(function (el) { var v = dict[el.getAttribute('data-i18n-aria')]; if (v != null) el.setAttribute('aria-label', v); });
+      root.setAttribute('lang', current === 'en' ? 'en' : 'pt-BR');
+      root.setAttribute('data-lang', current);
+      document.title = META[current].title;
+      document.querySelector('meta[name="description"]').setAttribute('content', META[current].desc);
+      document.querySelectorAll('[data-set-lang]').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-set-lang') === current));
+      });
+    }
+
+    document.querySelectorAll('[data-set-lang]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var lang = b.getAttribute('data-set-lang');
+        apply(lang);
+        try { localStorage.setItem('lw-lang', lang); } catch (e) {}
+      });
+    });
+
+    apply(root.getAttribute('data-lang'));
+
+    /* Lista no console chaves sem tradução EN (útil ao editar a página). */
+    var missing = Object.keys(PT).filter(function (key) { return EN[key] == null; });
+    if (missing.length) console.warn('[i18n] faltando EN:', missing);
+
+    /* Copiar BibTeX */
+    var copyBtn = document.getElementById('copyBib');
+    copyBtn.addEventListener('click', function () {
+      var text = document.getElementById('bibtex').textContent;
+      function done() {
+        copyBtn.textContent = t('copied');
+        setTimeout(function () { copyBtn.textContent = t('copy'); }, 1600);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () {});
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); done(); } catch (e) {}
+        document.body.removeChild(ta);
+      }
+    });
+  })();
+</script>
+
+</body>
+</html>
