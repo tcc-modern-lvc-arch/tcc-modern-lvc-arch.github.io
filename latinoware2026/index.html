@@ -421,9 +421,7 @@
     .video .d { font-size: .82rem; color: var(--ink-soft); }
 
     /* ---------- Materiais ---------- */
-    .materials { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
-    .doc[hidden] { display: none; }
-    .materials.has-slides { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .materials { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
     .doc {
       display: flex; align-items: center; gap: .95rem; min-width: 0;
       padding: 1.1rem 1.2rem; border-radius: var(--radius);
@@ -504,7 +502,7 @@
       .pipe-label { left: calc(50% + 14px); bottom: auto; top: 50%; transform: translateY(-50%); }
     }
     @media (max-width: 640px) {
-      .dims, .videos, .materials, .materials.has-slides { grid-template-columns: 1fr; }
+      .dims, .videos, .materials { grid-template-columns: 1fr; }
       .authors { grid-template-columns: 1fr; }
       footer { flex-direction: column; align-items: flex-start; }
     }
@@ -757,7 +755,7 @@
   <!-- ===== Materiais ===== -->
   <section id="materiais" class="sr" aria-labelledby="h-mat">
     <p class="section-label" data-i18n="lblMat">Materiais</p>
-    <h2 id="h-mat" data-i18n="hMat">Paper e código</h2>
+    <h2 id="h-mat" data-i18n="hMat">Paper, slides e código</h2>
     <div class="materials">
       <a class="doc" href="../Files/latinoware2026-full-paper.pdf" download="Open Source LVC Simulation Architecture - Latinoware 2026.pdf">
         <span class="doc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg></span>
@@ -767,8 +765,8 @@
         </span>
       </a>
 
-      <!-- Slides: aparece sozinho quando Files/latinoware2026-slides.pdf existir no repositório. -->
-      <a class="doc" id="slidesCard" href="../Files/latinoware2026-slides.pdf" download="Open Source LVC Simulation Architecture - Slides Latinoware 2026.pdf" hidden>
+      <!-- Slides: o link funciona assim que Files/latinoware2026-slides.pdf for adicionado ao repositório. -->
+      <a class="doc" href="../Files/latinoware2026-slides.pdf" download="Open Source LVC Simulation Architecture - Slides Latinoware 2026.pdf">
         <span class="doc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
         <span class="doc-text">
           <span class="doc-title" data-i18n="slidesTitle">Slides da apresentação</span>
@@ -886,8 +884,7 @@
       vid2t: 'Real-time Grafana',
       vid2d: 'Entities per area, check-in/check-out rate, audit log and alerts (CGESP floods, drone collisions).',
       lblMat: 'Materials',
-      hMat: 'Paper and code',
-      hMatSlides: 'Paper, slides and code',
+      hMat: 'Paper, slides and code',
       metaPaper: 'PDF · camera-ready · 10 pages',
       slidesTitle: 'Presentation slides',
       metaGh: 'Source code · 6 modules',
@@ -903,7 +900,7 @@
       logAria: 'Sample events',
       logNote: 'illustrative example'
     };
-    var PT_EXTRA = { linkCopied: 'Link copiado!', hMatSlides: 'Paper, slides e código' };
+    var PT_EXTRA = { linkCopied: 'Link copiado!' };
 
     var META = {
       pt: {
@@ -973,19 +970,6 @@
     function flash(el, key, restoreKey) {
       el.textContent = t(key);
       setTimeout(function () { el.textContent = t(restoreKey); }, 1600);
-    }
-
-    /* Slides: o card só aparece quando o PDF já estiver publicado no repositório. */
-    var slides = document.getElementById('slidesCard');
-    if (slides && window.fetch) {
-      fetch(slides.getAttribute('href'), { method: 'HEAD', cache: 'no-store' }).then(function (r) {
-        if (!r.ok) return;
-        slides.hidden = false;
-        slides.parentNode.classList.add('has-slides');
-        var h = document.getElementById('h-mat');
-        h.setAttribute('data-i18n', 'hMatSlides');   /* mantém o título certo ao trocar de idioma */
-        h.textContent = t('hMatSlides');
-      }, function () {});
     }
 
     /* Link canônico da página (o QR dos slides aponta para ele) */
