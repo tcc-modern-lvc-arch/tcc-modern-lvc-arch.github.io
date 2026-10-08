@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Open Source LVC Simulation Architecture — Latinoware 2026 · Latin.Science</title>
+  <title>Open Source LVC Simulation Architecture</title>
   <meta name="description" content="Full paper apresentado na trilha Latin.Science do Latinoware 2026: arquitetura event-driven Open Source com Event Sourcing e CQRS para simulações Live–Virtual–Constructive em Smart Cities.">
   <meta property="og:type" content="article">
   <meta property="og:title" content="Open Source LVC Simulation Architecture — Latinoware 2026">
@@ -60,6 +60,10 @@
       --sans: "Montserrat", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       --ls-logo-light: block;
       --ls-logo-dark:  none;
+      /* Cores das famílias LVC no diagrama */
+      --k-live:         var(--pink);
+      --k-virtual:      var(--accent);
+      --k-constructive: var(--tcc);
     }
 
     /* ---- Identidade Latinoware (escuro): por preferência de sistema ---- */
@@ -84,6 +88,7 @@
         --shadow-h:  0 2px 4px rgba(0,0,0,.4), 0 16px 36px rgba(104,91,199,.35);
         --ls-logo-light: none;
         --ls-logo-dark:  block;
+        color-scheme: dark;
       }
     }
 
@@ -108,6 +113,7 @@
       --shadow-h:  0 2px 4px rgba(0,0,0,.4), 0 16px 36px rgba(104,91,199,.35);
       --ls-logo-light: none;
       --ls-logo-dark:  block;
+      color-scheme: dark;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -119,7 +125,8 @@
       color: var(--ink);
       line-height: 1.6;
       min-height: 100vh;
-      padding: clamp(4.25rem, 8vw, 5rem) 16px clamp(2rem, 5vw, 3rem);
+      padding-inline: 16px;
+      padding-block: clamp(4.25rem, 8vw, 5rem) clamp(2rem, 5vw, 3rem);
       background-image: radial-gradient(circle at 1px 1px, var(--grid-dot) 1px, transparent 0);
       background-size: 26px 26px;
       transition: background-color .3s ease, color .3s ease;
@@ -127,6 +134,7 @@
     }
 
     a { color: var(--accent); }
+    section[id] { scroll-margin-top: 84px; }
     .wrap {
       width: 100%; max-width: 980px; margin: 0 auto;
       display: flex; flex-direction: column; gap: clamp(2.25rem, 5vw, 3.25rem);
@@ -137,7 +145,7 @@
     .topbar {
       position: fixed; top: 0; left: 0; right: 0; z-index: 20;
       display: flex; align-items: center; justify-content: space-between; gap: .75rem;
-      padding: .7rem 16px;
+      padding: calc(.7rem + env(safe-area-inset-top, 0px)) 16px .7rem;
       background: color-mix(in srgb, var(--bg) 82%, transparent);
       backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
       border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
@@ -281,20 +289,106 @@
     }
     .chip.tcc { color: var(--tcc); border-color: color-mix(in srgb, var(--tcc) 35%, var(--line)); background: var(--tcc-w); }
 
-    /* ---------- Arquitetura: 3 camadas ---------- */
-    .layers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; counter-reset: layer; }
-    .layer {
-      position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-      padding: 1.3rem 1.25rem 1.2rem; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: .5rem;
+    /* ---------- Arquitetura: fluxo de eventos ---------- */
+    .flow {
+      display: grid; grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1.35fr) 56px minmax(0, 1fr);
+      align-items: stretch;
     }
-    .layer::after {
-      content: ""; position: absolute; left: 1.25rem; right: 1.25rem; top: 0; height: 3px; border-radius: 0 0 3px 3px;
-      background: linear-gradient(90deg, var(--accent), var(--pink));
+    .stage {
+      background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 1.25rem 1.15rem; box-shadow: var(--shadow);
+      display: flex; flex-direction: column; gap: .7rem; min-width: 0;
     }
-    .layer .num { font-family: var(--mono); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
-    .layer h3 { font-size: 1.02rem; font-weight: 700; line-height: 1.25; }
-    .layer p { font-size: .87rem; color: var(--ink-soft); }
-    .layer .mods { margin-top: auto; padding-top: .4rem; font-family: var(--mono); font-size: .72rem; color: var(--tcc); }
+    .stage.hub { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+    .stage .step { font-family: var(--mono); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+    .stage h3 { font-size: 1.02rem; font-weight: 700; line-height: 1.25; text-wrap: balance; }
+    .stage > p { font-size: .84rem; color: var(--ink-soft); margin-top: auto; }
+    .nodes { list-style: none; display: flex; flex-direction: column; gap: .45rem; }
+    .node {
+      display: grid; grid-template-columns: 1fr; gap: .05rem;
+      padding: .55rem .7rem .55rem .85rem; border-radius: 10px;
+      background: var(--surface-2); border: 1px solid var(--line);
+      position: relative; overflow: hidden;
+    }
+    .node[data-kind]::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--kc);
+    }
+    .node b { font-size: .84rem; font-weight: 700; }
+    .node code { font-family: var(--mono); font-size: .72rem; color: var(--ink-soft); overflow-wrap: anywhere; }
+    .node small { font-size: .74rem; color: var(--ink-faint); }
+    [data-kind="live"]         { --kc: var(--k-live); }
+    [data-kind="virtual"]      { --kc: var(--k-virtual); }
+    [data-kind="constructive"] { --kc: var(--k-constructive); }
+
+    .core {
+      display: flex; flex-direction: column; gap: .15rem; padding: .75rem .85rem; border-radius: 11px;
+      background: var(--accent); color: var(--accent-ink);
+    }
+    .core code { font-family: var(--mono); font-size: .86rem; font-weight: 600; }
+    .core small { font-size: .74rem; opacity: .85; }
+
+    .log-wrap {
+      border-radius: 11px; background: var(--surface-2); border: 1px solid var(--line);
+      padding: .65rem .75rem .55rem; display: flex; flex-direction: column; gap: .4rem; min-width: 0;
+    }
+    .log-title {
+      display: inline-flex; align-items: center; gap: .45rem;
+      font-family: var(--mono); font-size: .66rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint);
+    }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--k-live); animation: blink 1.6s ease-in-out infinite; }
+    @keyframes blink { 50% { opacity: .25; } }
+    .log { list-style: none; display: flex; flex-direction: column; gap: .4rem; font-family: var(--mono); font-size: .68rem; line-height: 1.45; height: calc(8 * 1.45em + 3 * .4rem); overflow: hidden; }
+    .log li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .6rem; align-items: baseline; white-space: nowrap; }
+    .log .m { grid-column: 1 / -1; }
+    .log li.in { animation: logIn .45s cubic-bezier(.22,.61,.36,1); }
+    @keyframes logIn { from { opacity: 0; transform: translateY(-6px); background: color-mix(in srgb, var(--accent) 18%, transparent); } }
+    .log time { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+    .log .k { color: var(--kc); font-weight: 700; }
+    .log .m { color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; }
+    .log-note { font-size: .64rem; color: var(--ink-faint); font-style: italic; }
+
+    /* Conectores com eventos fluindo */
+    .pipe { position: relative; min-height: 48px; }
+    .pipe::before {
+      content: ""; position: absolute; left: 6px; right: 6px; top: 50%; height: 2px; transform: translateY(-50%);
+      background: repeating-linear-gradient(90deg, var(--line) 0 6px, transparent 6px 11px);
+    }
+    .pipe::after {   /* ponta da seta */
+      content: ""; position: absolute; right: 2px; top: 50%; width: 8px; height: 8px;
+      border-top: 2px solid var(--line); border-right: 2px solid var(--line); transform: translateY(-50%) rotate(45deg);
+    }
+    .pipe i {
+      position: absolute; top: 50%; left: 0; width: 9px; height: 9px; margin-top: -4.5px; border-radius: 50%;
+      background: var(--kc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--kc) 22%, transparent);
+      animation: flowX 2.7s linear infinite; opacity: 0;
+    }
+    .pipe i:nth-of-type(2) { animation-delay: .9s; }
+    .pipe i:nth-of-type(3) { animation-delay: 1.8s; }
+    .pipe + .stage + .pipe i { animation-delay: .45s; }
+    .pipe + .stage + .pipe i:nth-of-type(2) { animation-delay: 1.35s; }
+    .pipe + .stage + .pipe i:nth-of-type(3) { animation-delay: 2.25s; }
+    @keyframes flowX {
+      0%   { left: 0;    opacity: 0; }
+      12%  { opacity: 1; }
+      85%  { opacity: 1; }
+      100% { left: calc(100% - 9px); opacity: 0; }
+    }
+    @keyframes flowY {
+      0%   { top: 0;    opacity: 0; }
+      12%  { opacity: 1; }
+      85%  { opacity: 1; }
+      100% { top: calc(100% - 9px); opacity: 0; }
+    }
+    .pipe-label {
+      position: absolute; left: 50%; bottom: calc(50% + 9px); transform: translateX(-50%);
+      font-family: var(--mono); font-size: .6rem; color: var(--ink-faint); white-space: nowrap;
+    }
+
+    .flow-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .8rem 1.5rem; margin-top: 1rem; }
+    .flow-foot .keywords { margin-top: 0; }
+    .legend { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font-family: var(--mono); font-size: .72rem; color: var(--ink-soft); }
+    .legend span { display: inline-flex; align-items: center; gap: .4rem; }
+    .legend span::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--kc); }
 
     /* ---------- Validação: 4 dimensões ---------- */
     .dims { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
@@ -303,10 +397,13 @@
       background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
       padding: 1.2rem 1.25rem; box-shadow: var(--shadow);
     }
-    .dim .n {
-      grid-row: span 3; font-weight: 800; font-size: 1.9rem; line-height: 1; color: var(--accent);
-      opacity: .35; letter-spacing: -0.04em;
+    .dim .ic {
+      grid-row: span 3; width: 42px; height: 42px; display: grid; place-items: center;
+      border-radius: 11px; background: var(--accent-w); color: var(--accent-d);
+      transition: transform .25s cubic-bezier(.22,.61,.36,1);
     }
+    .dim .ic svg { width: 21px; height: 21px; }
+    .dim:hover .ic { transform: rotate(-8deg) scale(1.06); }
     .dim h3 { font-size: 1rem; font-weight: 700; }
     .dim p { font-size: .87rem; color: var(--ink-soft); }
     .dim .ev { font-family: var(--mono); font-size: .7rem; color: var(--tcc); }
@@ -317,7 +414,7 @@
       background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
       overflow: hidden; box-shadow: var(--shadow); display: flex; flex-direction: column;
     }
-    .video video { width: 100%; aspect-ratio: 16 / 9; display: block; background: #14142b; }
+    .video video { width: 100%; max-width: 100%; aspect-ratio: 16 / 9; display: block; background: var(--lw-bot); object-fit: cover; }
     .video figcaption { padding: .9rem 1.1rem 1rem; display: flex; flex-direction: column; gap: .2rem; }
     .video .tag { font-family: var(--mono); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
     .video .t { font-weight: 700; font-size: .95rem; }
@@ -378,18 +475,78 @@
     .footer-meta { font-family: var(--mono); font-size: .72rem; }
     .footer-meta a { color: var(--tcc); }
 
+    /* ---------- Navegação por seção + progresso de leitura ---------- */
+    .secnav { display: flex; gap: .15rem; min-width: 0; }
+    .secnav a {
+      font-family: var(--mono); font-size: .7rem; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--ink-faint); text-decoration: none; padding: .45rem .6rem; border-radius: 8px;
+      transition: color .16s ease, background .16s ease;
+    }
+    .secnav a:hover, .secnav a:focus-visible { color: var(--ink); outline: none; background: var(--accent-w); }
+    .secnav a.active { color: var(--accent-d); background: var(--accent-w); }
+    .progress {
+      position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; transform-origin: 0 50%; transform: scaleX(0);
+      background: linear-gradient(90deg, var(--accent), var(--pink));
+    }
+
+    /* ---------- Leve no celular (QR) ---------- */
+    .handoff {
+      display: flex; align-items: center; gap: 1.4rem;
+      background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 1.1rem 1.3rem; box-shadow: var(--shadow);
+    }
+    .handoff img { width: 116px; height: 116px; flex: 0 0 auto; border-radius: 10px; border: 6px solid #fff; box-sizing: content-box; image-rendering: pixelated; }
+    .handoff-text { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+    .handoff h2 { margin: 0; font-size: 1.1rem; }
+    .handoff p { font-size: .88rem; color: var(--ink-soft); }
+    .url-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .2rem; }
+    .url-row code { font-family: var(--mono); font-size: .76rem; color: var(--accent-d); overflow-wrap: anywhere; }
+    .copy-inline {
+      font: 600 .7rem/1 var(--mono); padding: .45rem .65rem; border-radius: 8px; cursor: pointer;
+      border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-soft);
+    }
+    .copy-inline:hover, .copy-inline:focus-visible { color: var(--accent); border-color: var(--accent); outline: none; }
+
+    /* ---------- Atmosfera do painel Latinoware ---------- */
+    .hero-lw::before { animation: dotsPulse 7s ease-in-out infinite; }
+    .hero-lw::after  { animation: waveSway 11s ease-in-out infinite alternate; }
+    @keyframes dotsPulse { 50% { opacity: .3; } }
+    @keyframes waveSway  { from { transform: translateX(-3%) scaleY(1); } to { transform: translateX(3%) scaleY(1.08); } }
+    .doc .doc-icon { transition: transform .2s cubic-bezier(.22,.61,.36,1); }
+    a.doc:hover .doc-icon, a.doc:focus-visible .doc-icon { transform: translateY(-2px) scale(1.06); }
+
+    /* ---------- Entrada das seções ao rolar (estado de repouso sempre visível) ---------- */
+    @supports (animation-timeline: view()) {
+      @media (prefers-reduced-motion: no-preference) {
+        .sr { animation: srIn linear both; animation-timeline: view(); animation-range: entry 0% entry 45%; }
+        @keyframes srIn { from { opacity: .45; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+      }
+    }
+    @supports (animation-timeline: scroll()) {
+      .progress { animation: grow linear both; animation-timeline: scroll(root); }
+      @keyframes grow { to { transform: scaleX(1); } }
+    }
+
     /* ---------- Responsivo ---------- */
+    @media (max-width: 1040px) { .secnav { display: none; } }
     @media (max-width: 820px) {
       .hero { grid-template-columns: 1fr; }
       .hero-lw { padding-bottom: 3.5rem; }
       .ls-logo { align-self: flex-start; }
-      .layers { grid-template-columns: 1fr; }
+      .flow { grid-template-columns: minmax(0, 1fr); }
+      .pipe { min-height: 56px; }
+      .pipe::before { left: 50%; right: auto; top: 4px; bottom: 4px; width: 2px; height: auto; transform: translateX(-50%);
+        background: repeating-linear-gradient(180deg, var(--line) 0 6px, transparent 6px 11px); }
+      .pipe::after { right: auto; left: 50%; top: auto; bottom: 2px; transform: translateX(-50%) rotate(135deg); }
+      .pipe i { left: 50%; top: 0; margin-top: 0; margin-left: -4.5px; animation-name: flowY; }
+      .pipe-label { left: calc(50% + 14px); bottom: auto; top: 50%; transform: translateY(-50%); }
     }
     @media (max-width: 640px) {
       .dims, .videos, .materials { grid-template-columns: 1fr; }
       .authors { grid-template-columns: 1fr; }
       footer { flex-direction: column; align-items: flex-start; }
       .cite pre { padding-top: 2.2rem; }
+      .handoff { display: none; }
     }
 
     /* ---------- Animações de entrada (leves, escalonadas) ---------- */
@@ -408,6 +565,8 @@
       * { transition: none !important; }
       .reveal { opacity: 1 !important; animation: none !important; }
       .theme-toggle:hover { transform: none; }
+      .pipe i, .live-dot, .hero-lw::before, .hero-lw::after, .log li.in { animation: none !important; }
+      .pipe i { opacity: 0; }
     }
   </style>
 </head>
@@ -416,6 +575,13 @@
 <!-- ===== Barra superior ===== -->
 <div class="topbar">
   <a class="back" href="../"><span class="dot" aria-hidden="true"></span><span data-i18n="back">TCC II · Mackenzie FCI</span></a>
+  <nav class="secnav" aria-label="Seções">
+    <a href="#resumo" data-i18n="lblAbstract">Resumo</a>
+    <a href="#arquitetura" data-i18n="lblArch">Arquitetura</a>
+    <a href="#validacao" data-i18n="lblVal">Validação</a>
+    <a href="#demos" data-i18n="lblDemos">Demos</a>
+    <a href="#materiais" data-i18n="lblMat">Materiais</a>
+  </nav>
   <div class="tools">
     <div class="lang-toggle" role="group" aria-label="Idioma / Language">
       <button type="button" data-set-lang="pt" aria-pressed="true" lang="pt-BR">PT</button>
@@ -426,6 +592,7 @@
       <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
     </button>
   </div>
+  <span class="progress" aria-hidden="true"></span>
 </div>
 
 <main class="wrap">
@@ -472,12 +639,16 @@
           <span data-i18n="ctaPaper">Baixar o paper</span>
         </a>
         <a class="btn btn-ghost" href="#demos" data-i18n="ctaDemos">Ver as demos</a>
+        <button class="btn btn-ghost" type="button" id="shareBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98M15.41 6.51l-6.82 3.98"/></svg>
+          <span data-i18n="share">Compartilhar</span>
+        </button>
       </div>
     </div>
   </header>
 
   <!-- ===== Abstract ===== -->
-  <section class="narrow reveal d2" aria-labelledby="h-abstract">
+  <section id="resumo" class="narrow sr" aria-labelledby="h-abstract">
     <p class="section-label" data-i18n="lblAbstract">Resumo</p>
     <h2 id="h-abstract" data-i18n="hAbstract">Do TCC ao congresso</h2>
     <div class="panel abstract">
@@ -493,67 +664,105 @@
     </div>
   </section>
 
-  <!-- ===== Arquitetura ===== -->
-  <section class="reveal d3" aria-labelledby="h-arch">
-    <div class="narrow" style="max-width:none">
-      <p class="section-label" data-i18n="lblArch">Arquitetura</p>
-      <h2 id="h-arch" data-i18n="hArch">De ponta a ponta, em três camadas</h2>
-    </div>
-    <div class="layers">
-      <article class="layer">
-        <span class="num" data-i18n="l1num">01 · Ingestão</span>
+  <!-- ===== Arquitetura: fluxo de eventos animado ===== -->
+  <section id="arquitetura" class="sr" aria-labelledby="h-arch">
+    <p class="section-label" data-i18n="lblArch">Arquitetura</p>
+    <h2 id="h-arch" data-i18n="hArch">De ponta a ponta, em três camadas</h2>
+
+    <div class="flow">
+      <div class="stage">
+        <span class="step" data-i18n="l1num">01 · Ingestão</span>
         <h3 data-i18n="l1t">Produtores de eventos</h3>
+        <ul class="nodes">
+          <li class="node" data-kind="live"><b>Live</b><code>live-ms-java</code><small>AIS · OlhoVivo · CGESP</small></li>
+          <li class="node" data-kind="virtual"><b>Virtual</b><code>virtual-ms-java</code><small data-i18n="nVirtual">Vaadin · Gêmeo Digital</small></li>
+          <li class="node" data-kind="constructive"><b>Constructive</b><code>constructive-ms-python</code><small>AirSim · NIM / Gemma</small></li>
+        </ul>
         <p data-i18n="l1d">Adaptadores Live, Virtual e Constructive publicam eventos via gRPC, em três linguagens, num contrato único.</p>
-        <span class="mods">live-ms-java · virtual-ms-java · constructive-ms-python</span>
-      </article>
-      <article class="layer">
-        <span class="num" data-i18n="l2num">02 · Persistência</span>
+      </div>
+
+      <div class="pipe" aria-hidden="true">
+        <i data-kind="live"></i><i data-kind="virtual"></i><i data-kind="constructive"></i>
+        <span class="pipe-label">gRPC</span>
+      </div>
+
+      <div class="stage hub">
+        <span class="step" data-i18n="l2num">02 · Persistência</span>
         <h3 data-i18n="l2t">Event Hub + Transactional Outbox</h3>
+        <div class="core">
+          <code>event-hub-ms-rust</code>
+          <small data-i18n="nHub">Pub/Sub · Outbox · poller 500 ms</small>
+        </div>
+        <div class="log-wrap">
+          <span class="log-title"><span class="live-dot" aria-hidden="true"></span><span data-i18n="logTitle">event store · append-only</span></span>
+          <ol class="log" id="eventLog" aria-label="Exemplo de eventos" data-i18n-aria="logAria">
+            <li><time>14:02:31</time><span class="k" data-kind="live">LIVE</span><span class="m">bus · CHECKIN · Caio Prado</span></li>
+            <li><time>14:02:30</time><span class="k" data-kind="virtual">VIRTUAL</span><span class="m">area · MISSION_TRIGGER · Caio Prado</span></li>
+            <li><time>14:02:28</time><span class="k" data-kind="constructive">CONSTR.</span><span class="m">drone · TELEMETRY · alt 30 m</span></li>
+            <li><time>14:02:27</time><span class="k" data-kind="live">LIVE</span><span class="m">cgesp · FLOOD_ALERT · CRITICAL</span></li>
+          </ol>
+          <span class="log-note" data-i18n="logNote">exemplo ilustrativo</span>
+        </div>
         <p data-i18n="l2d">O hub roteia num Pub/Sub uniforme; o Outbox garante at-least-once, persistindo e despachando sob uma única transação.</p>
-        <span class="mods">event-hub-ms-rust · MariaDB · InfluxDB</span>
-      </article>
-      <article class="layer">
-        <span class="num" data-i18n="l3num">03 · Consumo</span>
+      </div>
+
+      <div class="pipe" aria-hidden="true">
+        <i data-kind="live"></i><i data-kind="virtual"></i><i data-kind="constructive"></i>
+        <span class="pipe-label">Pub/Sub</span>
+      </div>
+
+      <div class="stage">
+        <span class="step" data-i18n="l3num">03 · Consumo</span>
         <h3 data-i18n="l3t">CQRS + Grafana</h3>
+        <ul class="nodes">
+          <li class="node"><b>Write stores</b><small>MariaDB · InfluxDB</small></li>
+          <li class="node"><b>Read projections</b><code>eventhub_read</code></li>
+          <li class="node"><b>Sync subscribers</b><small data-i18n="nSubs">fecham ciclos de missão</small></li>
+          <li class="node"><b>Grafana</b><small data-i18n="nGrafana">2 dashboards em tempo real</small></li>
+        </ul>
         <p data-i18n="l3d">Write stores e read projections separam escrita de leitura; subscribers síncronos fecham ciclos de missão e o Grafana consulta as projeções.</p>
-        <span class="mods">eventhub_read · projections · Grafana</span>
-      </article>
+      </div>
     </div>
-    <div class="keywords" aria-label="Stack">
-      <span class="chip tcc">proto-shared · gRPC · Protobuf</span>
-      <span class="chip tcc">Rust</span>
-      <span class="chip tcc">Java 25 · Spring Boot</span>
-      <span class="chip tcc">Python · AirSim</span>
-      <span class="chip tcc">NVIDIA NIM · Ollama Gemma</span>
-      <span class="chip tcc">Docker Compose</span>
+
+    <div class="flow-foot">
+      <div class="legend" aria-label="Legenda">
+        <span data-kind="live">Live</span><span data-kind="virtual">Virtual</span><span data-kind="constructive">Constructive</span>
+      </div>
+      <div class="keywords" aria-label="Stack">
+        <span class="chip tcc">Rust</span>
+        <span class="chip tcc">Java 25 · Spring Boot</span>
+        <span class="chip tcc">Python</span>
+        <span class="chip tcc">gRPC · Protobuf</span>
+        <span class="chip tcc">Docker Compose</span>
+      </div>
     </div>
   </section>
 
   <!-- ===== Validação ===== -->
-  <section class="reveal d3" aria-labelledby="h-val">
+  <section id="validacao" class="sr" aria-labelledby="h-val">
     <p class="section-label" data-i18n="lblVal">Validação</p>
     <h2 id="h-val" data-i18n="hVal">Quatro dimensões, quatro evidências</h2>
     <div class="dims">
       <article class="dim">
-        <span class="n">01</span>
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg></span>
         <h3 data-i18n="v1t">Rastreabilidade</h3>
         <p data-i18n="v1d">Estado reconstruível a partir de um log imutável; replay como operação de primeira classe.</p>
         <span class="ev" data-i18n="v1e">evidência · Event Sourcing</span>
       </article>
       <article class="dim">
-        <span class="n">02</span>
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg></span>
         <h3 data-i18n="v2t">Reprodutibilidade</h3>
         <p data-i18n-html="v2d">O ambiente completo sobe com <span class="tech">docker compose up</span> em qualquer máquina compatível.</p>
         <span class="ev" data-i18n="v2e">evidência · infra-local-shared</span>
       </article>
       <article class="dim">
-        <span class="n">03</span>
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5a2 2 0 0 1 2-2 2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/></svg></span>
         <h3 data-i18n="v3t">Interoperabilidade multi-linguagem</h3>
         <p data-i18n-html="v3d">Um único <span class="tech">.proto</span> gera stubs Java, Python e Rust: três linguagens, um só contrato.</p>
         <span class="ev" data-i18n="v3e">evidência · proto-shared</span>
       </article>
       <article class="dim">
-        <span class="n">04</span>
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1a10 10 0 0 1 0-14.2M19.1 4.9a10 10 0 0 1 0 14.2M7.8 16.2a6 6 0 0 1 0-8.4M16.2 7.8a6 6 0 0 1 0 8.4"/><circle cx="12" cy="12" r="2"/></svg></span>
         <h3 data-i18n="v4t">Integração com fontes reais</h3>
         <p data-i18n="v4d">Três adaptadores Live em modalidades distintas: REST autenticada, web scraping e API com cadastro.</p>
         <span class="ev" data-i18n="v4e">evidência · AIS · OlhoVivo · CGESP</span>
@@ -562,12 +771,12 @@
   </section>
 
   <!-- ===== Demos ===== -->
-  <section id="demos" class="reveal d4" aria-labelledby="h-demos">
+  <section id="demos" class="sr" aria-labelledby="h-demos">
     <p class="section-label" data-i18n="lblDemos">Demos</p>
     <h2 id="h-demos" data-i18n="hDemos">Cenários LVC em operação</h2>
     <div class="videos">
       <figure class="video">
-        <video controls preload="metadata" playsinline src="../videos/cenario3-drone.mp4"></video>
+        <video controls preload="none" playsinline poster="assets/poster-drone.jpg" src="../videos/cenario3-drone.mp4"></video>
         <figcaption>
           <span class="tag" data-i18n="vid1tag">Cenário 3 · Live → Virtual → Constructive</span>
           <span class="t" data-i18n="vid1t">Missão do drone disparada por evento Live</span>
@@ -575,7 +784,7 @@
         </figcaption>
       </figure>
       <figure class="video">
-        <video controls preload="metadata" playsinline src="../videos/observabilidade-grafana.mp4"></video>
+        <video controls preload="none" playsinline poster="assets/poster-grafana.jpg" src="../videos/observabilidade-grafana.mp4"></video>
         <figcaption>
           <span class="tag" data-i18n="vid2tag">Cenário 4 · Observabilidade</span>
           <span class="t" data-i18n="vid2t">Grafana em tempo real</span>
@@ -586,7 +795,7 @@
   </section>
 
   <!-- ===== Materiais ===== -->
-  <section class="reveal d4" aria-labelledby="h-mat">
+  <section id="materiais" class="sr" aria-labelledby="h-mat">
     <p class="section-label" data-i18n="lblMat">Materiais</p>
     <h2 id="h-mat" data-i18n="hMat">Paper, slides e código</h2>
     <div class="materials">
@@ -628,7 +837,7 @@
   </section>
 
   <!-- ===== Como citar ===== -->
-  <section class="narrow reveal d4" aria-labelledby="h-cite">
+  <section id="citar" class="narrow sr" aria-labelledby="h-cite">
     <p class="section-label" data-i18n="lblCite">Citação</p>
     <h2 id="h-cite" data-i18n="hCite">Como citar</h2>
     <div class="panel cite">
@@ -642,6 +851,19 @@
                Free Software and Open Technologies (Latinoware 2026)},
   <span class="k">year</span>      = {2026}
 }</pre>
+    </div>
+  </section>
+
+  <!-- ===== Leve no celular (QR) — útil quando a página está projetada ===== -->
+  <section class="handoff narrow sr" aria-labelledby="h-qr">
+    <img src="assets/qr-latinoware2026.svg" width="35" height="35" alt="QR code: tcc-modern-lvc-arch.github.io/latinoware2026/">
+    <div class="handoff-text">
+      <h2 id="h-qr" data-i18n="hQr">Abra no celular</h2>
+      <p data-i18n="pQr">Aponte a câmera para o código ou copie o link.</p>
+      <div class="url-row">
+        <code id="pageUrl">tcc-modern-lvc-arch.github.io/latinoware2026/</code>
+        <button class="copy-inline" type="button" id="copyUrl" data-i18n="copyLink">Copiar link</button>
+      </div>
     </div>
   </section>
 
@@ -747,17 +969,29 @@
       hCite: 'How to cite',
       copy: 'Copy',
       copied: 'Copied!',
-      footerTcc: 'thesis page'
+      footerTcc: 'thesis page',
+      share: 'Share',
+      linkCopied: 'Link copied!',
+      nVirtual: 'Vaadin · Digital Twin',
+      nHub: 'Pub/Sub · Outbox · 500 ms poller',
+      nSubs: 'close mission loops',
+      nGrafana: '2 real-time dashboards',
+      logTitle: 'event store · append-only',
+      logAria: 'Sample events',
+      logNote: 'illustrative example',
+      hQr: 'Open on your phone',
+      pQr: 'Point your camera at the code or copy the link.',
+      copyLink: 'Copy link'
     };
-    var PT_EXTRA = { copied: 'Copiado!' };
+    var PT_EXTRA = { copied: 'Copiado!', linkCopied: 'Link copiado!' };
 
     var META = {
       pt: {
-        title: 'Open Source LVC Simulation Architecture — Latinoware 2026 · Latin.Science',
+        title: 'Open Source LVC Simulation Architecture',
         desc: document.querySelector('meta[name="description"]').getAttribute('content')
       },
       en: {
-        title: 'Open Source LVC Simulation Architecture — Latinoware 2026 · Latin.Science',
+        title: 'Open Source LVC Simulation Architecture',
         desc: 'Full paper presented at the Latin.Science track of Latinoware 2026: an Open Source event-driven architecture with Event Sourcing and CQRS for Live–Virtual–Constructive simulations in Smart Cities.'
       }
     };
@@ -804,23 +1038,110 @@
     var missing = Object.keys(PT).filter(function (key) { return EN[key] == null; });
     if (missing.length) console.warn('[i18n] faltando EN:', missing);
 
+    function copyText(text, done) {
+      function fallback() {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        try { if (document.execCommand('copy')) done(); } catch (e) {}
+        document.body.removeChild(ta);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, fallback);
+      } else { fallback(); }
+    }
+    function flash(el, key, restoreKey) {
+      el.textContent = t(key);
+      setTimeout(function () { el.textContent = t(restoreKey); }, 1600);
+    }
+
     /* Copiar BibTeX */
     var copyBtn = document.getElementById('copyBib');
     copyBtn.addEventListener('click', function () {
-      var text = document.getElementById('bibtex').textContent;
-      function done() {
-        copyBtn.textContent = t('copied');
-        setTimeout(function () { copyBtn.textContent = t('copy'); }, 1600);
-      }
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(done, function () {});
-      } else {
-        var ta = document.createElement('textarea');
-        ta.value = text; document.body.appendChild(ta); ta.select();
-        try { document.execCommand('copy'); done(); } catch (e) {}
-        document.body.removeChild(ta);
-      }
+      copyText(document.getElementById('bibtex').textContent, function () { flash(copyBtn, 'copied', 'copy'); });
     });
+
+    /* Link canônico da página (o QR aponta para ele) */
+    var PAGE_URL = 'https://tcc-modern-lvc-arch.github.io/latinoware2026/';
+
+    var copyUrlBtn = document.getElementById('copyUrl');
+    copyUrlBtn.addEventListener('click', function () {
+      copyText(PAGE_URL, function () { flash(copyUrlBtn, 'linkCopied', 'copyLink'); });
+    });
+
+    /* Compartilhar: menu nativo no celular; senão, copia o link */
+    var shareBtn = document.getElementById('shareBtn');
+    var shareLbl = shareBtn.querySelector('[data-i18n]');
+    shareBtn.addEventListener('click', function () {
+      function copyFallback() { copyText(PAGE_URL, function () { flash(shareLbl, 'linkCopied', 'share'); }); }
+      if (navigator.share) {
+        navigator.share({ title: document.title, url: PAGE_URL }).catch(function (e) {
+          if (!e || e.name !== 'AbortError') copyFallback();
+        });
+      } else { copyFallback(); }
+    });
+  })();
+</script>
+
+<script>
+  /* Log de eventos ilustrativo: um evento novo entra no topo a cada ~1,8 s,
+     com a mesma família de cor dos pontos que fluem no diagrama. */
+  (function () {
+    var log = document.getElementById('eventLog');
+    if (!log) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var SAMPLES = [
+      ['live', 'LIVE', 'bus · CHECKIN · Caio Prado'],
+      ['virtual', 'VIRTUAL', 'area · MISSION_TRIGGER · Caio Prado'],
+      ['constructive', 'CONSTR.', 'drone · CHECKIN · Mackenzie Campus'],
+      ['constructive', 'CONSTR.', 'drone · TELEMETRY · alt 30 m'],
+      ['live', 'LIVE', 'bus · CHECKOUT · Rua da Consolação'],
+      ['live', 'LIVE', 'cgesp · FLOOD_ALERT · CRITICAL'],
+      ['virtual', 'VIRTUAL', 'operator · AREA_UPDATED · polygon'],
+      ['constructive', 'CONSTR.', 'drone · PHOTO_CAPTURED · Caio Prado'],
+      ['live', 'LIVE', 'ais · vessel · POSITION']
+    ];
+    var i = 0, timer = null;
+    function stamp(msAgo) {
+      var d = new Date(Date.now() - (msAgo || 0));
+      function p(n, w) { n = String(n); while (n.length < w) n = '0' + n; return n; }
+      return p(d.getHours(), 2) + ':' + p(d.getMinutes(), 2) + ':' + p(d.getSeconds(), 2);
+    }
+    function push() {
+      var s = SAMPLES[i++ % SAMPLES.length];
+      var li = document.createElement('li');
+      li.className = 'in';
+      var tm = document.createElement('time'); tm.textContent = stamp();
+      var k = document.createElement('span'); k.className = 'k'; k.setAttribute('data-kind', s[0]); k.textContent = s[1];
+      var m = document.createElement('span'); m.className = 'm'; m.textContent = s[2];
+      li.appendChild(tm); li.appendChild(k); li.appendChild(m);
+      log.insertBefore(li, log.firstChild);
+      while (log.children.length > 4) log.removeChild(log.lastChild);
+    }
+    /* Reancora os horários dos eventos iniciais no relógio do visitante. */
+    Array.prototype.forEach.call(log.querySelectorAll('time'), function (tm, n) { tm.textContent = stamp((n + 1) * 1700); });
+    function start() { if (!timer) timer = setInterval(push, 1800); }
+    function stop() { clearInterval(timer); timer = null; }
+    /* Só anima enquanto o diagrama está visível na tela. */
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (es) { es[0].isIntersecting ? start() : stop(); }).observe(log);
+    } else { start(); }
+  })();
+
+  /* Destaca na barra superior a seção que está sendo lida. */
+  (function () {
+    var links = document.querySelectorAll('.secnav a');
+    if (!links.length || !('IntersectionObserver' in window)) return;
+    var map = {};
+    links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        links.forEach(function (a) { a.classList.remove('active'); });
+        var a = map[e.target.id]; if (a) a.classList.add('active');
+      });
+    }, { rootMargin: '-45% 0px -50% 0px' });
+    Object.keys(map).forEach(function (id) { var el = document.getElementById(id); if (el) io.observe(el); });
   })();
 </script>
 
