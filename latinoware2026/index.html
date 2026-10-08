@@ -149,13 +149,13 @@
       backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
       border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
     }
-    .back {
+    .brand {
       display: inline-flex; align-items: center; gap: .45rem; min-width: 0;
       font-family: var(--mono); font-size: .74rem; letter-spacing: .04em;
-      color: var(--tcc); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      color: var(--accent); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .back:hover, .back:focus-visible { text-decoration: underline; outline: none; }
-    .back .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tcc); flex: 0 0 auto; }
+    .brand:hover, .brand:focus-visible { color: var(--accent-d); outline: none; }
+    .brand .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: 0 0 auto; }
     .tools { display: flex; align-items: center; gap: .5rem; flex: 0 0 auto; }
 
     .lang-toggle {
@@ -235,7 +235,8 @@
       padding: .32rem .62rem; border-radius: 99px;
       background: var(--accent-w); color: var(--accent-d);
     }
-    .badge.tcc { background: var(--tcc-w); color: var(--tcc); }
+    .badge.tcc { background: var(--tcc-w); color: var(--tcc); text-decoration: none; transition: box-shadow .16s ease; }
+    a.badge.tcc:hover, a.badge.tcc:focus-visible { box-shadow: inset 0 0 0 1.5px var(--tcc); outline: none; }
     .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
     h1 {
       font-size: clamp(1.6rem, 4.4vw, 2.35rem); font-weight: 700;
@@ -532,7 +533,7 @@
 
 <!-- ===== Barra superior ===== -->
 <div class="topbar">
-  <a class="back" href="../"><span class="dot" aria-hidden="true"></span><span data-i18n="back">TCC II · Mackenzie FCI</span></a>
+  <a class="brand" href="#"><span class="dot" aria-hidden="true"></span>Latinoware 2026 · Latin.Science</a>
   <nav class="secnav" aria-label="Seções">
     <a href="#resumo" data-i18n="lblAbstract">Resumo</a>
     <a href="#arquitetura" data-i18n="lblArch">Arquitetura</a>
@@ -571,7 +572,7 @@
       <img class="ls-logo dark" src="assets/latinscience-white.svg" width="515" height="195" alt="Latin.Science 2026">
       <div class="badges">
         <span class="badge" data-i18n="badgePaper">Full Paper · Latin.Science 2026</span>
-        <span class="badge tcc" data-i18n="badgeTcc">Origem: TCC II · Mackenzie</span>
+        <a class="badge tcc" href="../" data-i18n="badgeTcc">Origem: TCC II · Mackenzie →</a>
       </div>
       <h1>Open Source LVC Simulation Architecture</h1>
       <p class="subtitle" data-i18n-html="subtitle">
@@ -835,12 +836,11 @@
      aqui só ficam as traduções para inglês, por chave de data-i18n / data-i18n-html. */
   (function () {
     var EN = {
-      back: 'Undergraduate thesis · Mackenzie FCI',
       themeToggle: 'Toggle light/dark theme',
       lwEdition: '23rd Latin American Congress on Free Software and Open Technologies',
       realizacao: 'Hosted by',
       badgePaper: 'Full Paper · Latin.Science 2026',
-      badgeTcc: 'Origin: Mackenzie thesis',
+      badgeTcc: 'Origin: Mackenzie thesis →',
       subtitle: 'An Open Source <span class="tech">event-driven</span> architecture with <span class="tech">Event Sourcing</span> and <span class="tech">CQRS</span> for Live–Virtual–Constructive simulations in Smart Cities.',
       authors: 'Authors',
       affil: 'Mackenzie Presbyterian University · São Paulo, Brazil',
