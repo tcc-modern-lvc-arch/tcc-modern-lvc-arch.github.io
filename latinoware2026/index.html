@@ -282,6 +282,23 @@
     }
     .abstract p { color: var(--ink-soft); font-size: .97rem; }
     @media (min-width: 900px) { .abstract p[data-i18n="abstract"] { column-count: 2; column-gap: 2.5rem; } }
+    .abstract .lead { color: var(--ink); font-size: 1.02rem; line-height: 1.65; max-width: 72ch; }
+    .more { margin-top: 1rem; padding-top: .35rem; border-top: 1px solid var(--line); }
+    .more summary {
+      list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: .55rem; min-height: 44px;
+      font: 600 .78rem/1.2 var(--mono); letter-spacing: .03em; color: var(--accent-d);
+    }
+    .more summary::-webkit-details-marker { display: none; }
+    .more summary::after {   /* chevron */
+      content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+      transform: translateY(-2px) rotate(45deg); transition: transform .2s ease;
+    }
+    .more[open] summary::after { transform: translateY(2px) rotate(-135deg); }
+    .more summary:hover { color: var(--accent); }
+    .more summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+    .more .when-open, .more[open] .when-closed { display: none; }
+    .more[open] .when-open { display: inline; }
+    .more-body { padding-top: .35rem; }
     .abstract .note { margin-top: .9rem; font-family: var(--mono); font-size: .72rem; color: var(--ink-faint); text-align: left; }
     .keywords { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: 1.1rem; }
     .chip {
@@ -374,12 +391,6 @@
       85%  { opacity: 1; }
       100% { left: calc(100% - 9px); opacity: 0; }
     }
-    @keyframes flowY {
-      0%   { top: 0;    opacity: 0; }
-      12%  { opacity: 1; }
-      85%  { opacity: 1; }
-      100% { top: calc(100% - 9px); opacity: 0; }
-    }
     .pipe-label {
       position: absolute; left: 50%; bottom: calc(50% + 9px); transform: translateX(-50%);
       font-family: var(--mono); font-size: .6rem; color: var(--ink-faint); white-space: nowrap;
@@ -390,6 +401,14 @@
     .legend { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font-family: var(--mono); font-size: .72rem; color: var(--ink-soft); }
     .legend span { display: inline-flex; align-items: center; gap: .4rem; }
     .legend span::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--kc); }
+
+    /* ---------- Carrosséis do celular: dica de deslizar ---------- */
+    .swipe-hint {
+      display: none; align-items: center; gap: .4rem; margin: -.45rem 0 .8rem;
+      font-family: var(--mono); font-size: .7rem; letter-spacing: .04em; color: var(--ink-faint);
+    }
+    .swipe-hint .arrow { display: inline-block; animation: nudge 1.8s ease-in-out infinite; }
+    @keyframes nudge { 50% { transform: translateX(4px); } }
 
     /* ---------- Validação: 4 dimensões ---------- */
     .dims { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
@@ -494,19 +513,73 @@
       .hero { grid-template-columns: 1fr; }
       .hero-lw { padding-bottom: 3.5rem; }
       .ls-logo { align-self: flex-start; }
-      .flow { grid-template-columns: minmax(0, 1fr); }
-      .pipe { min-height: 56px; }
-      .pipe::before { left: 50%; right: auto; top: 4px; bottom: 4px; width: 2px; height: auto; transform: translateX(-50%);
-        background: repeating-linear-gradient(180deg, var(--line) 0 6px, transparent 6px 11px); }
-      .pipe::after { right: auto; left: 50%; top: auto; bottom: 2px; transform: translateX(-50%) rotate(135deg); }
-      .pipe i { left: 50%; top: 0; margin-top: 0; margin-left: -4.5px; animation-name: flowY; }
-      .pipe-label { left: calc(50% + 14px); bottom: auto; top: 50%; transform: translateY(-50%); }
+      /* Arquitetura vira carrossel horizontal: os eventos seguem fluindo da esquerda para a direita */
+      .flow {
+        display: flex; align-items: stretch; overflow-x: auto; overscroll-behavior-x: contain;
+        scroll-snap-type: x mandatory; scroll-padding-inline: 16px;
+        margin-inline: -16px; padding: 2px 16px 6px; scrollbar-width: none;
+      }
+      .flow::-webkit-scrollbar { display: none; }
+      .flow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius); }
+      .stage { flex: 0 0 min(84%, 400px); scroll-snap-align: start; box-shadow: none; }
+      .pipe { flex: 0 0 38px; min-height: 0; }
+      .pipe-label { display: none; }
+      #arquitetura .swipe-hint { display: flex; }
     }
     @media (max-width: 640px) {
-      .dims, .videos, .materials { grid-template-columns: 1fr; }
-      .authors { grid-template-columns: 1fr; }
+      .wrap { gap: 2rem; }
+      h2 { margin-bottom: .9rem; }
+
+      /* Hero compacto */
+      .hero-lw { gap: .85rem; padding: 1.6rem 1.25rem 2.6rem; }
+      .hero-lw .lw-logo { width: min(220px, 70%); }
+      .hero-lw .lw-edition { font-size: .88rem; }
+      .hero-lw .lw-real { margin-top: 0; gap: .4rem; }
+      .hero-lw .lw-real img { width: min(180px, 60%); }
+      .hero-ls { gap: .8rem; padding: 1.4rem 1.25rem 1.5rem; }
+      .ls-logo { width: 140px; }
+      .authors-label { margin-top: .15rem; }
+      .authors { grid-template-columns: 1fr; gap: .1rem; font-size: .86rem; }
+      .hero-cta { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-top: .2rem; }
+      .hero-cta .btn { justify-content: center; }
+      .hero-cta .btn-primary { grid-column: 1 / -1; }
+
+      /* Arquitetura: os chips de stack repetem os nós do diagrama */
+      .flow-foot .keywords { display: none; }
+
+      /* Validação: um painel único com divisórias */
+      .dims {
+        grid-template-columns: 1fr; gap: 0; overflow: hidden;
+        background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+      }
+      .dim { border: 0; border-radius: 0; box-shadow: none; background: transparent; padding: .85rem 1rem; gap: .15rem .8rem; }
+      .dim + .dim { border-top: 1px solid var(--line); }
+      .dim .ic { width: 34px; height: 34px; border-radius: 9px; }
+      .dim .ic svg { width: 18px; height: 18px; }
+      .dim h3 { font-size: .95rem; }
+      .dim p { font-size: .84rem; line-height: 1.5; }
+
+      /* Demos: carrossel */
+      .videos {
+        display: flex; gap: .75rem; overflow-x: auto; overscroll-behavior-x: contain;
+        scroll-snap-type: x mandatory; scroll-padding-inline: 16px;
+        margin-inline: -16px; padding: 2px 16px 6px; scrollbar-width: none;
+      }
+      .videos::-webkit-scrollbar { display: none; }
+      .videos:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius); }
+      .video { flex: 0 0 86%; scroll-snap-align: start; box-shadow: none; }
+      #demos .swipe-hint { display: flex; }
+
+      /* Materiais: grade 2×2 com ícone em cima */
+      .materials { gap: .6rem; }
+      .doc { flex-direction: column; align-items: flex-start; gap: .6rem; padding: .9rem .95rem; }
+      .doc .doc-icon { width: 36px; height: 36px; }
+      .doc .doc-icon svg { width: 19px; height: 19px; }
+      .doc .doc-title { font-size: .9rem; }
+
       footer { flex-direction: column; align-items: flex-start; }
     }
+    @media (max-width: 420px) { .brand-long { display: none; } }
 
     /* ---------- Animações de entrada (leves, escalonadas) ---------- */
     @keyframes rise {
@@ -524,7 +597,7 @@
       * { transition: none !important; }
       .reveal { opacity: 1 !important; animation: none !important; }
       .theme-toggle:hover { transform: none; }
-      .pipe i, .live-dot, .hero-lw::before, .hero-lw::after, .log li.in { animation: none !important; }
+      .pipe i, .live-dot, .hero-lw::before, .hero-lw::after, .log li.in, .swipe-hint .arrow { animation: none !important; }
       .pipe i { opacity: 0; }
     }
   </style>
@@ -533,7 +606,7 @@
 
 <!-- ===== Barra superior ===== -->
 <div class="topbar">
-  <a class="brand" href="#"><span class="dot" aria-hidden="true"></span>Latinoware 2026 · Latin.Science</a>
+  <a class="brand" href="#"><span class="dot" aria-hidden="true"></span>Latinoware 2026<span class="brand-long">&nbsp;· Latin.Science</span></a>
   <nav class="secnav" aria-label="Seções">
     <a href="#resumo" data-i18n="lblAbstract">Resumo</a>
     <a href="#arquitetura" data-i18n="lblArch">Arquitetura</a>
@@ -611,15 +684,21 @@
     <p class="section-label" data-i18n="lblAbstract">Resumo</p>
     <h2 id="h-abstract" data-i18n="hAbstract">Do TCC ao congresso</h2>
     <div class="panel abstract">
-      <p data-i18n="abstract">A complexidade inerente à gestão urbana no contexto de Smart Cities demanda soluções avançadas de planejamento e apoio à decisão, visando ampliar a consciência situacional e a resiliência dos ecossistemas urbanos. Este trabalho propõe e valida uma arquitetura de software orientada a eventos para uma plataforma que integra os domínios Live, Virtual e Constructive (LVC) sobre o Campus Living Lab da Universidade Presbiteriana Mackenzie. Fundamentada nos padrões Event Sourcing (ES) e Command Query Responsibility Segregation (CQRS), a arquitetura é construída exclusivamente com tecnologias Open Source, superando as barreiras de licenciamento e adoção dos padrões tradicionais High Level Architecture (HLA) e Distributed Interactive Simulation (DIS). O contrato canônico de interoperabilidade é definido via Protocol Buffers e gRPC, com geração automatizada de stubs Java, Python e Rust pelo módulo proto-shared. A plataforma foi materializada em seis módulos independentes e exercitada por adaptadores Live para AIS, SPTrans (OlhoVivo) e CGESP, um componente Virtual com interface Vaadin sobre o campus Higienópolis e um componente Constructive baseado em AirSim, com planejamento de trajetória apoiado por NVIDIA NIM e Ollama Gemma. Quatro cenários LVC integrados (cadastro de áreas e POIs, check-in/check-out de entidades, missão de drone disparada por eventos Live e auditoria de alertas) foram demonstrados sobre dois dashboards de observabilidade no Grafana. Os resultados validam a viabilidade técnica da arquitetura em quatro dimensões: rastreabilidade, reprodutibilidade, interoperabilidade multi-linguagem e integração com fontes reais. Como limitações, a validação estatística comparativa entre dados Live e modelos Virtual/Constructive e a avaliação de escalabilidade horizontal sob carga massiva permanecem como trabalhos futuros.</p>
-      <p class="note" data-i18n="abstractNote">Tradução livre · o paper foi publicado em inglês.</p>
-      <div class="keywords" aria-label="Keywords">
-        <span class="chip">Digital Twins</span>
-        <span class="chip">LVC</span>
-        <span class="chip">Event-Driven Architecture</span>
-        <span class="chip">Event Sourcing</span>
-        <span class="chip">Open Source</span>
-      </div>
+      <p class="lead" data-i18n="abstractLead">Os padrões clássicos de simulação distribuída (HLA e DIS) dependem de infraestrutura proprietária e são caros de adotar. Propomos uma arquitetura orientada a eventos, totalmente Open Source, com Event Sourcing, CQRS e um contrato único em gRPC para Java, Python e Rust, validada em quatro cenários LVC no Campus Living Lab do Mackenzie.</p>
+      <details class="more">
+        <summary><span class="when-closed" data-i18n="readMore">Ler resumo completo</span><span class="when-open" data-i18n="readLess">Recolher resumo</span></summary>
+        <div class="more-body">
+          <p data-i18n="abstract">A complexidade inerente à gestão urbana no contexto de Smart Cities demanda soluções avançadas de planejamento e apoio à decisão, visando ampliar a consciência situacional e a resiliência dos ecossistemas urbanos. Este trabalho propõe e valida uma arquitetura de software orientada a eventos para uma plataforma que integra os domínios Live, Virtual e Constructive (LVC) sobre o Campus Living Lab da Universidade Presbiteriana Mackenzie. Fundamentada nos padrões Event Sourcing (ES) e Command Query Responsibility Segregation (CQRS), a arquitetura é construída exclusivamente com tecnologias Open Source, superando as barreiras de licenciamento e adoção dos padrões tradicionais High Level Architecture (HLA) e Distributed Interactive Simulation (DIS). O contrato canônico de interoperabilidade é definido via Protocol Buffers e gRPC, com geração automatizada de stubs Java, Python e Rust pelo módulo proto-shared. A plataforma foi materializada em seis módulos independentes e exercitada por adaptadores Live para AIS, SPTrans (OlhoVivo) e CGESP, um componente Virtual com interface Vaadin sobre o campus Higienópolis e um componente Constructive baseado em AirSim, com planejamento de trajetória apoiado por NVIDIA NIM e Ollama Gemma. Quatro cenários LVC integrados (cadastro de áreas e POIs, check-in/check-out de entidades, missão de drone disparada por eventos Live e auditoria de alertas) foram demonstrados sobre dois dashboards de observabilidade no Grafana. Os resultados validam a viabilidade técnica da arquitetura em quatro dimensões: rastreabilidade, reprodutibilidade, interoperabilidade multi-linguagem e integração com fontes reais. Como limitações, a validação estatística comparativa entre dados Live e modelos Virtual/Constructive e a avaliação de escalabilidade horizontal sob carga massiva permanecem como trabalhos futuros.</p>
+          <p class="note" data-i18n="abstractNote">Tradução livre · o paper foi publicado em inglês.</p>
+          <div class="keywords" aria-label="Keywords">
+            <span class="chip">Digital Twins</span>
+            <span class="chip">LVC</span>
+            <span class="chip">Event-Driven Architecture</span>
+            <span class="chip">Event Sourcing</span>
+            <span class="chip">Open Source</span>
+          </div>
+        </div>
+      </details>
     </div>
   </section>
 
@@ -627,8 +706,9 @@
   <section id="arquitetura" class="sr" aria-labelledby="h-arch">
     <p class="section-label" data-i18n="lblArch">Arquitetura</p>
     <h2 id="h-arch" data-i18n="hArch">De ponta a ponta, em três camadas</h2>
+    <p class="swipe-hint" aria-hidden="true"><span data-i18n="swipe">Deslize para o lado</span><span class="arrow">→</span></p>
 
-    <div class="flow">
+    <div class="flow" tabindex="0" role="region" aria-label="Fluxo de eventos em três camadas" data-i18n-aria="flowAria">
       <div class="stage">
         <span class="step" data-i18n="l1num">01 · Ingestão</span>
         <h3 data-i18n="l1t">Produtores de eventos</h3>
@@ -733,7 +813,8 @@
   <section id="demos" class="sr" aria-labelledby="h-demos">
     <p class="section-label" data-i18n="lblDemos">Demos</p>
     <h2 id="h-demos" data-i18n="hDemos">Cenários LVC em operação</h2>
-    <div class="videos">
+    <p class="swipe-hint" aria-hidden="true"><span data-i18n="swipe">Deslize para o lado</span><span class="arrow">→</span></p>
+    <div class="videos" tabindex="0" role="region" aria-label="Vídeos das demos" data-i18n-aria="videosAria">
       <figure class="video">
         <video controls preload="none" playsinline poster="assets/poster-drone.jpg" src="../videos/cenario3-drone.mp4"></video>
         <figcaption>
@@ -850,6 +931,12 @@
       hAbstract: 'From thesis to conference',
       abstract: 'The inherent complexity of urban management in the context of Smart Cities demands advanced solutions for planning and decision support, aiming to increase situational awareness and resilience of urban ecosystems. This work proposes and validates an event-driven software architecture for a platform that integrates the Live, Virtual, and Constructive (LVC) domains over the Mackenzie Presbyterian University Campus Living Lab. Grounded on the Event Sourcing (ES) and Command Query Responsibility Segregation (CQRS) patterns, the architecture is built exclusively on Open Source technologies, overcoming the licensing and adoption barriers of traditional High Level Architecture (HLA) and Distributed Interactive Simulation (DIS) standards. The canonical interoperability contract is defined via Protocol Buffers and gRPC, with automated generation of Java, Python, and Rust stubs by the proto-shared module. The platform was materialized as six independent modules and exercised through Live adapters for AIS, SPTrans (OlhoVivo) and CGESP, a Virtual component with a Vaadin interface over the Higienópolis campus, and a Constructive component based on AirSim with trajectory planning supported by NVIDIA NIM and Ollama Gemma. Four integrated LVC scenarios (registration of areas and POIs, entity check-in/check-out, drone mission triggered by Live events, and alert auditing) were demonstrated over two Grafana observability dashboards. Results validate the architecture’s technical feasibility along four dimensions: traceability, reproducibility, multi-language interoperability, and integration with real sources. As limitations, the statistical comparative validation between Live data and Virtual/Constructive models, and the evaluation of horizontal scalability under massive load, remain as future work.',
       abstractNote: 'Original abstract, as published in the paper.',
+      abstractLead: 'Classic distributed-simulation standards (HLA and DIS) rely on proprietary infrastructure and are costly to adopt. We propose an event-driven, fully Open Source architecture with Event Sourcing, CQRS and a single gRPC contract for Java, Python and Rust, validated through four LVC scenarios on the Mackenzie Campus Living Lab.',
+      readMore: 'Read the full abstract',
+      readLess: 'Collapse abstract',
+      swipe: 'Swipe sideways',
+      flowAria: 'Event flow in three layers',
+      videosAria: 'Demo videos',
       lblArch: 'Architecture',
       hArch: 'End to end, in three layers',
       l1num: '01 · Ingestion',
